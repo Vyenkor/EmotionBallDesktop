@@ -24,11 +24,12 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases) 下载 `EmotionBallDesktop-v*-setup.exe`。
-2. 双击 EXE，程序会自动释放完整运行资源并启动桌宠。
-3. 右键桌宠打开设置菜单；需要退出时可从桌宠菜单或系统托盘退出。
+1. 从 [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases) 下载 `EmotionBallDesktop-v*-win-x64.zip`。
+2. 将 ZIP 完整解压到普通文件夹。
+3. 双击解压目录中的 `EmotionBallDesktop.exe`。
+4. 右键桌宠打开设置菜单；需要退出时可从桌宠菜单或系统托盘退出。
 
-也可以下载 `EmotionBallDesktop-v*-win-x64.zip` 便携包，完整解压后运行其中的 `EmotionBallDesktop.exe`。
+Release 也提供可直接双击的 `EmotionBallDesktop-v*-setup.exe`，作为不想手动解压时的可选方案。
 
 便携包已包含 x64 .NET 与 Node.js 运行时，不需要安装 Node.js 或 .NET SDK。Windows 仍需提供 Microsoft Edge WebView2 Runtime；多数 Windows 10/11 已自带。
 
