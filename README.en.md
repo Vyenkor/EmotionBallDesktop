@@ -1,231 +1,112 @@
-<div align="center">
+# EmotionBallDesktop
 
-# Emotion Ball Gallery
+[简体中文](README.md) | [English](README.en.md)
 
-**An expression engine for AI assistants — 32 emotion states · 3 body shapes · pure SVG + vanilla JavaScript · zero dependencies**
+A transparent Windows desktop pet that reacts to Codex and the application you are currently using.
 
-[![Live Demo](https://img.shields.io/badge/demo-emotion--balls.vercel.app-8A63F4?logo=vercel&logoColor=white)](https://emotion-balls.vercel.app/)
-[![License](https://img.shields.io/badge/license-dual--license-blue)](LICENSE)
-[![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)](#)
-[![Made With](https://img.shields.io/badge/made%20with-vanilla%20JS%20%2B%20SVG-F7DF1E?logo=javascript&logoColor=black)](#)
+> This is an unofficial Windows desktop derivative of [sam70361/emotion-ball](https://github.com/sam70361/emotion-ball), not a replica or an official release. The upstream project provides the SVG character, emotion definitions, and animation engine. This repository adds the Windows host, Codex bridge, local app awareness, status bubbles, tray integration, and portable packaging.
 
-[中文](README.md) | **English**
+![EmotionBallDesktop in action](docs/images/desktop-pet-status.png)
 
-[Live demo](https://emotion-balls.vercel.app/) · [Features](#features) · [Quick start](#quick-start) · [Integration guide](#integration-guide) · [Customization](#customization--extensibility) · [License](#license)
-
-</div>
-
----
-
-Emotion Ball is an expression engine for AI assistants: 32 emotion states rendered entirely in pure SVG and vanilla JavaScript — no frameworks, no image assets. Your AI only needs to output a single `emotionId` and the ball switches to the matching expression, making it a drop-in emotion layer for chatbots, desktop pets and floating assistants.
-
-It is also more than "a ball": three body shapes ship out of the box — blob, wedge and gem — along with themed multi-instance support and a wireframe mode. The whole expression system is pure-data driven: eye-ring pools, animation primitives and keyframe sequences compose freely, so you can build new expressions and behaviors on top of the existing design without touching engine code.
-
-The repository also ships with a complete gallery site: a wireframe hero opening, wall and album browsing modes, a bilingual UI and dark / light themes.
-
-## Preview
-
-| Hero (dark) | Light theme · English |
-| :---: | :---: |
-| ![Hero](assets/screenshots/eb-hero-dark.png) | ![Light theme](assets/screenshots/eb-hero-light-en.png) |
-
-| Wall mode | Stage lightbox |
-| :---: | :---: |
-| ![Wall](assets/screenshots/eb-wall-dark.png) | ![Lightbox](assets/screenshots/eb-stage-modal.png) |
-
-![Album mode with the thinking halo ribbon](assets/screenshots/eb-album-dark.png)
+[Download the latest Windows release](https://github.com/Vyenkor/EmotionBallDesktop/releases/latest)
 
 ## Features
 
-- **32 emotion states** across three groups — Lifecycle (sleeping / waking / idle…), Emotions (happy / shy / angry / surprised…) and Agent States (thinking / searching / error / done…) — all config-driven
-- **3 body shapes**: blob, wedge and gem, with one eye and animation system that adapts automatically to each silhouette; themed instances (team bots) and wireframe mode are also supported
-- **Segmented emotionId scheme**: the tens digit is the group prefix — `00-09` Lifecycle, `10-29` Emotions, `30-49` Agent States, `50+` Custom; gaps between groups are reserved slots and existing IDs are never renumbered, so integrations can hard-code them safely
-- **Contour-ring eye system**: 25 sets of 48-point eye contours, point-by-point spring morphing, expression-pool rotation and overshooting blink keyframes
-- **Spherical projection**: eyes follow the body silhouette with longitude mapping and cosine compression, hiding automatically when spun to the back
-- **Ribbons & confetti**: spin-triggered 3D orbital ribbon trails with 5-stop hue gradients, a persistent halo ribbon for the thinking state, and physics-based confetti bursts
-- **Mouse gaze**: page-wide gaze tracking with frame-rate-independent smoothing, plus constant subtle eye wander
-- **Config-driven and extensible**: every expression is a pure-data composition of eye-ring pool + animation primitives + keyframe sequence; register custom expressions at runtime and import / export the full config — see [Customization](#customization--extensibility)
-- **Robust AI protocol**: `handleAIMessage` accepts an object or a JSON string; unknown IDs, parse failures and missing fields all fall back to idle and emit an `error` event — it never breaks the page
-- **Zero dependencies**: HTML + SVG + vanilla JS with no build step, ready to drop into an Electron floating window
-- **Gallery site**: wall mode (grid + click-to-open lightbox) and album mode (horizontal strip + big stage with paging), settings drawer, auto tour, Chinese / English, dark / light themes, all preferences persisted in localStorage
+- Codex tasks take priority and show the task name plus thinking, working, searching, waiting, replying, and completion states.
+- When Codex is idle, foreground applications are classified locally and mapped to rotating playful phrases and SVG actions.
+- After 5 seconds without input the pet enters a sleepy, half-closed-eye idle state; the bubble hides 3 seconds later and wakes to the current app state on mouse movement.
+- Three body shapes: blob, wedge, and gem.
+- Transparent and always-on-top window, free dragging, and proportional resizing by holding the left mouse button while scrolling.
+- Bubble position above or below the pet, with separate Codex and App visibility switches.
+- A system tray icon indicates that the local bridge is running and uses the same icon as the executable.
+- Single-instance enforcement, persisted position/settings, and screen-edge clamping.
+- A dedicated WebView2 data directory plus retry handling for initialization error `0x800700AA`.
 
 ## Quick start
 
-```bash
-# any static server works, e.g.:
-python -m http.server 8765
-# open http://localhost:8765/
+1. Download `EmotionBallDesktop-v*-win-x64.zip` from [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases).
+2. Extract the entire archive to a normal folder. Do not run it from inside the ZIP preview.
+3. Double-click `EmotionBallDesktop.exe`.
+4. Right-click the pet for settings. Exit from either the pet menu or the tray menu.
+
+The portable archive includes the x64 .NET and Node.js runtimes. No Node.js or .NET SDK installation is required. Microsoft Edge WebView2 Runtime is still required and is included with most Windows 10/11 installations.
+
+## Controls
+
+| Input | Action |
+| --- | --- |
+| Left-button drag | Move the pet with a bounce animation |
+| Hold left button + mouse wheel | Resize proportionally |
+| Right-click the pet | Open shape, bubble, topmost, and exit settings |
+| Double-click the pet | Toggle always-on-top |
+| Click the bubble during a Codex task | Reveal the per-task dismiss button |
+| Double-click the tray icon | Bring the pet back onto a visible screen area |
+
+## State and privacy
+
+Priority is: `active Codex task > foreground app > idle`.
+
+- The local bridge listens only on `127.0.0.1:8765`.
+- Codex integration reads `%USERPROFILE%\.codex\sessions` and the local task title index in read-only mode.
+- Chat content, command arguments, tool output, tokens, and credentials are never sent to the web animation layer.
+- Window titles, class names, and executable information are classified only inside the local desktop process and are not uploaded.
+
+Codex Desktop is optional. The local app mode continues to work when no Codex task is active.
+
+## Troubleshooting
+
+### The pet does not appear
+
+- Make sure the archive has been fully extracted.
+- Check the notification area for the Emotion Ball icon; double-click it to restore the pet.
+- Check Task Manager for an existing `EmotionBallDesktop.exe`. Only one instance is allowed.
+- Install or repair [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+
+### `The requested resource is in use (0x800700AA)`
+
+End stale `EmotionBallDesktop.exe` and related `msedgewebview2.exe` processes, verify that `%LOCALAPPDATA%\EmotionBallCodex` is writable, and start the pet again. The app uses `%LOCALAPPDATA%\EmotionBallCodex\WebView2` as a dedicated profile and retries the initialization once.
+
+### Reset position and settings
+
+Exit the pet and delete:
+
+```text
+%LOCALAPPDATA%\EmotionBallCodex\window-state.json
 ```
 
-Or just open `index.html` directly (a local server is recommended so Google Fonts load).
+## Build from source
 
-## Integration guide
+Requirements: Windows 10/11 x64, .NET 10 SDK, Node.js 18+, and WebView2 Runtime.
 
-### Minimal setup
-
-Load four scripts in order (no build, no dependencies) and create an instance. `js/i18n.js` and `js/app.js` belong to the gallery site and are not needed by hosts:
-
-```html
-<script src="js/rings.js"></script>
-<script src="js/emotions.js"></script>
-<script src="js/ball.js"></script>
-<script src="js/engine.js"></script>
-
-<div id="bot" style="width:200px;height:200px"></div>
-<script>
-  var ball = EmotionBall.create(document.getElementById('bot'), {
-    emotion: '02', idle: true
-  });
-</script>
+```powershell
+npm test
+dotnet build .\desktop-host\EmotionBallDesktop.csproj -c Release
 ```
 
-### AI protocol
+Create the portable release:
 
-Your AI outputs a single JSON payload and hands it to `handleAIMessage` (object or string):
-
-```js
-ball.handleAIMessage('{"emotionId":"30","tips":"thinking about the question"}');
+```powershell
+.\scripts\build-release.ps1 -Version 1.0.0
 ```
 
-- Unknown `emotionId`, JSON parse failures and missing fields emit an `error` event and fall back to idle (`fallbackId`, default `'02'`);
-- `tips` is optional display text, surfaced through the `tips` event for the host to render as it sees fit.
+The release script produces a clean root containing only the executable, bilingual documentation, licenses, and a `resources` directory, followed by a ZIP and SHA-256 checksum.
 
-### Creation options
+## Repository layout
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `emotion` | `'02'` | initial emotion ID |
-| `shape` | `'blob'` | body shape: `blob` / `wedge` / `gem` |
-| `color` / `eyeColor` | — | themed instance body / eye color, overriding per-emotion colors |
-| `eyeScale` | `1` | eye magnification; `1.5–1.8` recommended below 80 px for readability |
-| `idle` | `false` | idle policy — auto standby / sleep after a timeout; pass an object to customize durations and target states |
-| `autostart` | `true` | `false` renders a single static frame without entering the animation loop (for thumbnails) |
-| `lite` | follows `autostart` | lite mode: disables ribbon / confetti effects |
-| `fallbackId` | `'02'` | fallback emotion for unknown IDs |
-
-### Events & methods
-
-```js
-ball.on('change', e => {});         // emotion switched { id, def, auto }
-ball.on('tips',   e => {});         // AI display text { text }
-ball.on('error',  e => {});         // protocol error { message, ... }
-
-ball.setEmotion('21');              // switch directly
-ball.setGaze(nx, ny);               // normalized gaze [-1, 1]; host listens to pointermove
-ball.setStyle({ sketch: 1 });       // wireframe mode
-ball.spin(3);                       // spin & throw ribbons
-ball.burst(24);                     // confetti
-ball.bounce();                      // bounce
-ball.startTour(ids, 2500);          // auto tour / ball.stopTour()
-ball.setActive(false);              // pause off-screen to save power; true resumes
-ball.renderStatic();                // render one static frame while paused
-ball.registerEmotion(raw);          // register a custom emotion at runtime
-ball.destroy();                     // dispose the instance
+```text
+bridge/          Local Codex state tracker and HTTP/SSE bridge
+desktop-host/    WinForms + WebView2 transparent desktop host
+js/              emotion-ball engine and desktop-pet frontend
+css/             Desktop pet and status-page styles
+docs/images/     README screenshots
+scripts/         Reproducible release packaging
 ```
 
-### Multi-instance & performance
+## Upstream, fonts, and licensing
 
-- All instances share a single rAF heartbeat, so the instance count does not multiply loop overhead;
-- Thumbnail walls: render statically with `autostart: false`, then `setActive(true)` on hover and `setActive(false)` on leave;
-- Pair with IntersectionObserver to pause off-screen instances via `setActive(false)`.
+- Upstream: [sam70361/emotion-ball](https://github.com/sam70361/emotion-ball). The original design, SVG engine, emotion data, and related assets remain copyrighted by the upstream author.
+- This repository preserves the upstream history, `LICENSE`, `LICENSE-COMMERCIAL.md`, and attribution while clearly identifying desktop-specific changes.
+- The upstream learning-and-exchange license applies by default and prohibits commercial use. Contact the upstream author for commercial licensing.
+- PingFangSC font files are not redistributed because the referenced font repository does not provide a verifiable redistribution license. An installed PingFang font is used when available; otherwise the app falls back to Microsoft YaHei UI included with Windows.
 
-### Desktop pet / Electron
-
-- Window flags: `transparent: true, frame: false, alwaysOnTop: true, skipTaskbar: true`, with a transparent page background and only the ball container;
-- Click-through: `win.setIgnoreMouseEvents(true, { forwardMouseMove: true })` — the ball still receives `setGaze` while clicks pass through;
-- Forward AI messages via IPC: `ipcRenderer.on('emotion', (_, msg) => ball.handleAIMessage(msg))`;
-- For small floating windows (≤ 120 px), use `eyeScale: 1.5` with `lite: true`.
-
-## Customization & extensibility
-
-The engine and render layers are a stable foundation — new expressions and behaviors are built from pure-data configs on top of the existing design, without touching engine code.
-
-### Emotion config format
-
-```js
-{
-  id: '50', name: 'Custom', group: 'custom',
-  desc: '中文描述', en: { name: 'Custom', desc: '...' },
-  transition: 380,            // entry transition duration (ms)
-  gaze: true,                 // false = ignore mouse gaze (sleep / halt states)
-  pool: [2, 11, 17, 19],      // eye-ring pool, rotated randomly within poolMs
-  poolMs: [2500, 4500],       // rotation interval; poolSpeed controls morph speed
-  blinkMs: [2500, 5000],      // blink interval (null = never)
-  openness: 1,                // resting eye openness (tired 0.55, sleeping 0.08)
-  antics: true,               // random idle antics (spin / bounce)
-  body: { breathe: 0.014, color: '#F6EFE4', zzz: 0, orbit: 0 },
-  anims: [ { target: 'eyes', prop: 'lookY', type: 'glance', amp: 6, period: 3000 } ],
-  sequence: { ... }           // optional entry keyframe sequence
-}
-```
-
-### Animation primitives
-
-Each expression layers up to three animators, composed from six primitives:
-
-| Type | Effect | Key parameters |
-| --- | --- | --- |
-| `sine` | sine drift / breathing / sweeping | `amp, period, phase` |
-| `glance` | smoothed square wave, dwelling at both ends (look left, look right) | `amp, period` |
-| `pulse` | rhythmic 0 → amp scaling | `amp, period` |
-| `jitter` | pseudo-noise shake with optional decay | `amp, speed, decay` |
-| `scan` | fast triangular sweep (searching / scanning) | `amp, period` |
-| `blink` | periodic closing (auto-desynced across instances) | `interval, dur, phaseMs` |
-
-`target`: `eyes / body / left / right`; `prop`: `lookX / lookY / x / y / scale / open / rotate`.
-
-### Keyframe sequences
-
-A `sequence` defines a one-shot performance played on entering an expression, then settles per its `settle` semantics: `'base'` eases back to the resting pose (surprise), `'hold'` freezes on the last frame (blushing pink, angry red), and `{ next: '02' }` chains into another expression (wake up → idle).
-
-### Registration and import / export
-
-```js
-// register a new expression at runtime (IDs 50+ are the custom range, fully validated)
-EmotionBall.config.register({ id: '50', name: 'Custom', group: 'custom', ... });
-
-// export / import the full config as JSON
-// (the gallery's settings drawer offers the same buttons)
-EmotionBall.config.exportConfig();
-EmotionBall.config.importConfig(json);
-```
-
-### AI collaboration skills
-
-`.cursor/skills/` ships two engineering guides that AI editors such as Cursor pick up automatically when this repository is open:
-
-- **emotion-design** — the expression design spec: eye-ring pool reference, animation parameter ranges, keyframe semantics and bilingual copy requirements, so an AI designs new expressions within a consistent visual language;
-- **emotion-integration** — integration practices: SDK options, the AI protocol, multi-instance performance and Electron guidance, so an AI can wire the ball into your host app.
-
-## Project layout
-
-```
-emotion-ball/
-├── index.html          # site entry: hero + gallery + settings drawer
-├── css/style.css       # dual-theme variables, dual-mode layouts
-├── js/
-│   ├── rings.js        # geometry data: 25 eye rings + 3 body silhouettes
-│   ├── emotions.js     # 32 emotion configs (pure data, zh + en copy)
-│   ├── i18n.js         # UI string dictionary (zh / en)
-│   ├── ball.js         # render layer: SVG, spherical projection, ribbons, confetti
-│   ├── engine.js       # engine layer: state machine, springs, expression pool, SDK
-│   └── app.js          # interaction layer: the gallery site shell
-├── assets/
-│   ├── img/            # favicon
-│   └── screenshots/    # README preview screenshots
-└── .cursor/skills/     # AI collaboration skills: emotion design + integration
-```
-
-## License
-
-This project is **dual-licensed**:
-
-| | Community license (default) | Commercial license |
-| --- | --- | --- |
-| File | [LICENSE](LICENSE) | [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) |
-| Fee | Free | Small one-time fee |
-| Scope | Personal learning, research and technical exchange; non-commercial sharing with attribution | Any commercial use — integration into commercial products or services, closed-source derivative development, paid delivery, etc. |
-
-> Commercial licenses are deliberately affordable: a small one-time fee grants perpetual, fully compliant commercial use — far cheaper than the legal and reputational risk of unlicensed use. There is simply no reason to take that risk. See [docs/LICENSING.md](docs/LICENSING.md) for use cases and how to purchase.
-
-For commercial licensing and partnerships, email: **1251579308@qq.com**
+See the [licensing guide](docs/LICENSING.md) and [third-party notices](NOTICE.md).

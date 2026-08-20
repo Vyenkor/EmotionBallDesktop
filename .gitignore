@@ -1,3 +1,14 @@
 # internal docs — never publish
 docs/商业授权操作手册.md
 docs/口播与发布文案.md
+
+# local desktop build and runtime artifacts
+.bridge-runtime/
+.qa/
+.release/
+desktop-app/
+desktop-host/bin/
+desktop-host/obj/
+desktop-host/Fonts/
+README.codex.md
+packaging/

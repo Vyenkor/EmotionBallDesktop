@@ -1,0 +1,111 @@
+:root {
+  color-scheme: dark;
+  --page: #11120f;
+  --panel: rgba(245, 241, 232, 0.08);
+  --line: rgba(245, 241, 232, 0.14);
+  --text: #f4f0e7;
+  --muted: #aaa79f;
+  --accent: #74d7c6;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at 50% 32%, rgba(84, 185, 166, 0.14), transparent 34rem),
+    var(--page);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.companion-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.ball-stage {
+  width: min(92vw, 520px);
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+}
+
+.codex-ball {
+  width: min(68vw, 330px);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.32));
+}
+
+.status-panel {
+  width: 100%;
+  min-height: 112px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  backdrop-filter: blur(20px);
+  text-align: center;
+}
+
+.status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.connection-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #d7635c;
+  box-shadow: 0 0 0 5px rgba(215, 99, 92, 0.12);
+}
+
+.connection-dot.online {
+  background: var(--accent);
+  box-shadow: 0 0 0 5px rgba(116, 215, 198, 0.12);
+}
+
+.status-tips {
+  min-height: 1.5em;
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.thread-info {
+  margin: 7px 0 0;
+  color: color-mix(in srgb, var(--muted), transparent 28%);
+  font: 11px/1.4 Consolas, monospace;
+}
+
+@media (max-height: 560px) {
+  .companion-shell { padding: 12px; }
+  .ball-stage { grid-template-columns: minmax(170px, 260px) minmax(230px, 1fr); align-items: center; }
+  .codex-ball { width: min(42vw, 260px); }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --page: #eeeae2;
+    --panel: rgba(255, 255, 255, 0.58);
+    --line: rgba(35, 34, 30, 0.12);
+    --text: #25241f;
+    --muted: #77746c;
+  }
+}

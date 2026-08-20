@@ -1,230 +1,112 @@
-<div align="center">
+# EmotionBallDesktop
 
-# Emotion Ball 表情馆
+[简体中文](README.md) | [English](README.en.md)
 
-**为 AI 助手打造的表情引擎 —— 32 种状态表情 · 3 种身体形态 · 纯 SVG + 原生 JavaScript · 零依赖**
+一个会感知 Codex 与当前 Windows 应用状态的透明桌面宠物。
 
-[![在线预览](https://img.shields.io/badge/demo-emotion--balls.vercel.app-8A63F4?logo=vercel&logoColor=white)](https://emotion-balls.vercel.app/)
-[![许可](https://img.shields.io/badge/license-dual--license-blue)](LICENSE)
-[![零依赖](https://img.shields.io/badge/dependencies-zero-brightgreen)](#)
-[![技术栈](https://img.shields.io/badge/made%20with-vanilla%20JS%20%2B%20SVG-F7DF1E?logo=javascript&logoColor=black)](#)
+> 本项目是基于 [sam70361/emotion-ball](https://github.com/sam70361/emotion-ball) 制作的 Windows 桌面端衍生项目，不是原项目的官方版本，也不建议称为“复刻”。原项目提供 SVG 小球、表情系统与动画引擎；本项目增加 Windows 桌面宿主、Codex 状态桥接、本地应用状态、气泡、托盘与便携交付。
 
-**中文** | [English](README.en.md)
+![EmotionBallDesktop 运行效果](docs/images/desktop-pet-status.png)
 
-[在线预览](https://emotion-balls.vercel.app/) · [特性](#特性) · [快速开始](#快速开始) · [集成指南](#集成指南) · [自定义与扩展](#自定义与扩展) · [许可](#许可)
+[下载最新 Windows 版本](https://github.com/Vyenkor/EmotionBallDesktop/releases/latest)
 
-</div>
+## 功能
 
----
-
-Emotion Ball 是一套面向 AI 助手的表情引擎:32 种状态表情全部由纯 SVG 与原生 JavaScript 实时驱动,零框架、零图片资源。AI 侧只需输出一个 `emotionId`,即可切换到对应表情,可直接用作聊天机器人、桌面宠物、悬浮助手的情绪表达层。
-
-它也不只是"一颗球":内置圆胖(blob)、三角(wedge)、菱形(gem)三种身体形态,支持主题色多实例与线稿模式;整套表情体系围绕纯数据配置设计——眼环池、动画原语、关键帧序列自由组合,基于现有设计即可自主扩展新表情与新玩法。
-
-仓库同时内置一个完整的「表情展示馆」站点:开屏线稿 Hero、陈列墙与画册双浏览模式、中英双语界面、明暗双主题。
-
-## 预览
-
-| 开屏 Hero(暗黑) | 明亮主题 · English |
-| :---: | :---: |
-| ![开屏 Hero](assets/screenshots/eb-hero-dark.png) | ![明亮主题](assets/screenshots/eb-hero-light-en.png) |
-
-| 陈列墙 | 大图弹窗 |
-| :---: | :---: |
-| ![陈列墙](assets/screenshots/eb-wall-dark.png) | ![大图弹窗](assets/screenshots/eb-stage-modal.png) |
-
-![画册模式 · 思考中环带](assets/screenshots/eb-album-dark.png)
-
-## 特性
-
-- **32 种状态表情**:覆盖生命周期(睡眠 / 唤醒 / 待机…)、情绪反应(开心 / 害羞 / 生气 / 惊讶…)与代理工作状态(思考中 / 检索资料 / 出错 / 任务完成…)三大分组,全部由配置驱动
-- **3 种身体形态**:圆胖(blob)、三角(wedge)、菱形(gem),同一套眼睛与动画系统按轮廓自动适配;另支持主题色实例(团队小球)与线稿模式
-- **分段式 emotionId**:十位数字即分组前缀 —— `00-09` 生命周期、`10-29` 情绪、`30-49` 代理状态、`50+` 自定义;组间空号为新表情预留,已有编号永不重排,对接方可放心硬编码
-- **轮廓环眼睛系统**:25 组 48 点轮廓眼环,逐点弹簧插值形变,表情池随机轮换,眨眼带过冲关键帧
-- **球面投影**:眼睛按身体轮廓做经度换算与余弦压缩,自旋绕到背面时自动隐藏
-- **彩带与撒花**:自旋达速甩出 3D 轨道拖尾彩带(5-stop 色相渐变),思考状态头顶常驻环带,庆祝状态物理粒子撒花
-- **鼠标注视**:全页面注视跟随,帧率无关指数平滑,叠加常驻眼神微漂移
-- **配置驱动、可自主扩展**:每个表情都是「眼环池 + 动画原语 + 关键帧序列」的纯数据组合,支持运行时注册自定义表情、导入导出全部配置,详见[自定义与扩展](#自定义与扩展)
-- **AI 对接协议健壮**:`handleAIMessage` 接受对象或 JSON 字符串,未知 ID、解析失败、缺字段均自动回退待机并触发 `error` 事件,永不白屏
-- **零依赖**:HTML + SVG + 原生 JavaScript,无构建步骤,可直接迁移到 Electron 悬浮窗
-- **展示馆站点**:陈列墙(网格 + 点击弹窗大图)与画册(横向长廊 + 大舞台翻页)双模式,设置抽屉、自动巡演、中英双语、明暗主题,全部偏好经 localStorage 持久化
+- Codex 活跃时优先显示任务名称，以及思考、处理、检索、等待、回复、完成等状态。
+- Codex 空闲时识别当前前台应用，在本机生成轮换的俏皮文案与对应 SVG 动作。
+- 5 秒无输入后进入眯眼待机；再静置 3 秒自动隐藏气泡，移动鼠标即按当前应用状态唤醒。
+- 圆胖、三角、菱形三种身体形态。
+- 透明、置顶、可拖动；按住左键并滚动滚轮可等比例缩放。
+- 气泡可置于桌宠上方或下方，可分别关闭 Codex 气泡和 App 气泡。
+- 系统托盘显示后台桥接状态，使用与 EXE 相同的图标。
+- 单实例运行、窗口位置与设置持久化、屏幕边界限制。
+- 独立 WebView2 数据目录，并针对 `0x800700AA` 初始化占用错误重试。
 
 ## 快速开始
 
-```bash
-# 任意静态服务器均可,例如:
-python -m http.server 8765
-# 打开 http://localhost:8765/
+1. 从 [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases) 下载 `EmotionBallDesktop-v*-win-x64.zip`。
+2. 将压缩包完整解压到普通文件夹，不能直接在压缩包预览窗口中运行。
+3. 双击 `EmotionBallDesktop.exe`。
+4. 右键桌宠打开设置菜单；需要退出时可从桌宠菜单或系统托盘退出。
+
+便携包已包含 x64 .NET 与 Node.js 运行时，不需要安装 Node.js 或 .NET SDK。Windows 仍需提供 Microsoft Edge WebView2 Runtime；多数 Windows 10/11 已自带。
+
+## 操作
+
+| 操作 | 效果 |
+| --- | --- |
+| 左键拖动 | 移动桌宠，并播放弹跳动作 |
+| 按住左键并滚动滚轮 | 等比例放大或缩小 |
+| 右键桌宠 | 打开形态、气泡、置顶和退出菜单 |
+| 双击桌宠 | 切换始终置顶 |
+| Codex 活跃时单击气泡 | 显示临时关闭按钮；仅关闭本次任务气泡 |
+| 双击托盘图标 | 将桌宠恢复到可见屏幕区域 |
+
+## 状态与隐私
+
+状态优先级为：`Codex 活跃任务 > 当前前台应用 > 待机`。
+
+- 本地桥接仅监听 `127.0.0.1:8765`。
+- Codex 联动只读检查 `%USERPROFILE%\.codex\sessions` 与本地任务标题索引。
+- 网页动画层不会收到聊天正文、命令参数、工具输出、Token 或账号凭据。
+- 前台窗口标题、窗口类名和 EXE 信息只在桌宠进程内用于分类，不会上传。
+
+Codex Desktop 是可选依赖；没有 Codex 活跃任务时，桌宠仍可使用本地 App 状态模式。
+
+## 常见问题
+
+### 启动后没有出现桌宠
+
+- 确认压缩包已经完整解压。
+- 检查托盘中是否已有 Emotion Ball 图标；双击图标可恢复桌宠。
+- 在任务管理器中确认是否已有 `EmotionBallDesktop.exe`。程序只允许一个实例。
+- 安装或修复 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
+
+### `请求的资源在使用中 (0x800700AA)`
+
+结束残留的 `EmotionBallDesktop.exe` 与其 `msedgewebview2.exe`，确认 `%LOCALAPPDATA%\EmotionBallCodex` 可写，然后重新运行。程序使用独立的 `%LOCALAPPDATA%\EmotionBallCodex\WebView2` 数据目录并自动重试一次。
+
+### 重置位置与设置
+
+退出桌宠后删除：
+
+```text
+%LOCALAPPDATA%\EmotionBallCodex\window-state.json
 ```
 
-或直接双击 `index.html`(建议通过本地服务器访问,以正常加载 Google Fonts)。
+## 从源码构建
 
-## 集成指南
+要求：Windows 10/11 x64、.NET 10 SDK、Node.js 18 或更高版本、WebView2 Runtime。
 
-### 最小接入
-
-按顺序引入四个脚本(无构建、无依赖)即可创建实例;`js/i18n.js` 与 `js/app.js` 属于展示站,宿主接入不需要:
-
-```html
-<script src="js/rings.js"></script>
-<script src="js/emotions.js"></script>
-<script src="js/ball.js"></script>
-<script src="js/engine.js"></script>
-
-<div id="bot" style="width:200px;height:200px"></div>
-<script>
-  var ball = EmotionBall.create(document.getElementById('bot'), {
-    emotion: '02', idle: true
-  });
-</script>
+```powershell
+npm test
+dotnet build .\desktop-host\EmotionBallDesktop.csproj -c Release
 ```
 
-### AI 对接协议
+生成便携 Release：
 
-AI 只需输出一段 JSON,交给 `handleAIMessage`(接受对象或字符串):
-
-```js
-ball.handleAIMessage('{"emotionId":"30","tips":"正在思考用户问题"}');
+```powershell
+.\scripts\build-release.ps1 -Version 1.0.0
 ```
 
-- 未知 `emotionId`、JSON 解析失败、缺少字段 → 触发 `error` 事件并自动回退待机(`fallbackId`,默认 `'02'`);
-- `tips` 为可选展示文案,通过 `tips` 事件透出,由宿主决定如何呈现。
-
-### 创建选项
-
-| 选项 | 默认 | 说明 |
-| --- | --- | --- |
-| `emotion` | `'02'` | 初始表情 ID |
-| `shape` | `'blob'` | 身体形态:`blob` 圆胖 / `wedge` 三角 / `gem` 菱形 |
-| `color` / `eyeColor` | — | 主题实例体色 / 眼色,优先于表情配置的体色 |
-| `eyeScale` | `1` | 眼睛放大倍率;小于 80px 的实例建议 `1.5~1.8` 保证可读 |
-| `idle` | `false` | 待机策略,超时自动切换待机 / 睡眠,可传对象自定义时长与目标表情 |
-| `autostart` | `true` | 设为 `false` 时只渲染静态帧,不进入动画循环(缩略图用) |
-| `lite` | 跟随 `autostart` | 精简模式:关闭彩带 / 撒花特效 |
-| `fallbackId` | `'02'` | 未知 ID 的回退表情 |
-
-### 事件与方法
-
-```js
-ball.on('change', e => {});         // 表情已切换 { id, def, auto }
-ball.on('tips',   e => {});         // AI 附带文案 { text }
-ball.on('error',  e => {});         // 协议错误 { message, ... }
-
-ball.setEmotion('21');              // 直接切换表情
-ball.setGaze(nx, ny);               // 归一化目光 [-1, 1],宿主自行监听 pointermove
-ball.setStyle({ sketch: 1 });       // 线稿模式
-ball.spin(3);                       // 自旋甩彩带
-ball.burst(24);                     // 撒花
-ball.bounce();                      // 弹跳
-ball.startTour(ids, 2500);          // 自动巡演 / ball.stopTour()
-ball.setActive(false);              // 视口外停帧省电,true 恢复
-ball.renderStatic();                // 停帧状态下渲染一张静态帧
-ball.registerEmotion(raw);          // 运行时注册自定义表情
-ball.destroy();                     // 销毁实例
-```
-
-### 多实例与性能
-
-- 所有实例共享同一个 rAF 心跳,实例数量不增加循环开销;
-- 缩略图墙场景:以 `autostart: false` 静态渲染,悬停时 `setActive(true)`、移出时 `setActive(false)`;
-- 配合 IntersectionObserver 在视口外调用 `setActive(false)` 停帧省电。
-
-### 桌面宠物 / Electron 接入
-
-- 窗口参数:`transparent: true, frame: false, alwaysOnTop: true, skipTaskbar: true`,页面背景透明,只保留小球容器;
-- 鼠标穿透:`win.setIgnoreMouseEvents(true, { forwardMouseMove: true })`,穿透的同时仍可驱动 `setGaze` 注视;
-- AI 消息经主进程 IPC 转发:`ipcRenderer.on('emotion', (_, msg) => ball.handleAIMessage(msg))`;
-- 小尺寸悬浮窗(≤ 120px)建议 `eyeScale: 1.5` 并开启 `lite: true`。
-
-## 自定义与扩展
-
-表情引擎与渲染层是稳定基座,基于现有设计即可自主扩展新表情与新玩法——新增表情只需编写纯数据配置,不需要触碰引擎代码。
-
-### 表情配置格式
-
-```js
-{
-  id: '50', name: '自定义', group: 'custom',
-  desc: '中文描述', en: { name: 'Custom', desc: '...' },
-  transition: 380,            // 切入过渡时长(ms)
-  gaze: true,                 // false = 不注视鼠标(睡眠/停止类)
-  pool: [2, 11, 17, 19],      // 眼环索引池,poolMs 间隔内随机轮换
-  poolMs: [2500, 4500],       // 轮换间隔;poolSpeed 控制形变速度
-  blinkMs: [2500, 5000],      // 眨眼间隔(null 不眨)
-  openness: 1,                // 常驻眼睛开合度(疲惫 0.55、睡眠 0.08)
-  antics: true,               // 待机随机小动作(自旋/弹跳)
-  body: { breathe: 0.014, color: '#F6EFE4', zzz: 0, orbit: 0 },
-  anims: [ { target: 'eyes', prop: 'lookY', type: 'glance', amp: 6, period: 3000 } ],
-  sequence: { ... }           // 可选:进入表情时的关键帧序列
-}
-```
-
-### 动画原语
-
-每个表情最多叠加 3 条动画,由 6 种原语组合而成:
-
-| 类型 | 效果 | 关键参数 |
-| --- | --- | --- |
-| `sine` | 正弦漂移 / 呼吸 / 扫视 | `amp, period, phase` |
-| `glance` | 平滑方波,两端停留(左看看、右看看) | `amp, period` |
-| `pulse` | 0 → amp 节奏缩放 | `amp, period` |
-| `jitter` | 伪噪声抖动,可随时间衰减 | `amp, speed, decay` |
-| `scan` | 三角波快速扫动(检索 / 扫读) | `amp, period` |
-| `blink` | 周期闭合(多实例自动错峰) | `interval, dur, phaseMs` |
-
-`target` 可选 `eyes / body / left / right`;`prop` 可选 `lookX / lookY / x / y / scale / open / rotate`。
-
-### 关键帧序列
-
-`sequence` 定义进入表情时的一次性演出,播完后按 `settle` 语义收尾:`'base'` 回落基础姿态(惊讶),`'hold'` 定格末帧(害羞变粉、生气变红),`{ next: '02' }` 自动切换到下一个表情(唤醒 → 待机)。
-
-### 注册与导入导出
-
-```js
-// 运行时注册新表情(50+ 为自定义编号段,带完整校验)
-EmotionBall.config.register({ id: '50', name: '自定义', group: 'custom', ... });
-
-// 全量导出 / 导入配置 JSON(展示馆站点的设置抽屉内也提供同款按钮)
-EmotionBall.config.exportConfig();
-EmotionBall.config.importConfig(json);
-```
-
-### AI 协作 Skills
-
-`.cursor/skills/` 内置两份工程化规范文档,在 Cursor 等 AI 编辑器中打开本仓库时,AI 会自动遵循:
-
-- **emotion-design**:表情设计规范——眼环池速查表、动画参数取值范围、关键帧语义与双语文案要求,让 AI 按统一视觉语言帮你设计新表情;
-- **emotion-integration**:集成实践——SDK 选项、AI 协议、多实例性能与 Electron 接入要点,让 AI 帮你完成宿主接入。
+构建脚本会生成精简结构：根目录只保留 EXE、双语说明、许可证和 `resources` 资源目录，并输出 ZIP 与 SHA-256 文件。
 
 ## 项目结构
 
-```
-emotion-ball/
-├── index.html          # 站点入口:Hero + 展馆 + 设置抽屉
-├── css/style.css       # 双主题变量、双模式布局
-├── js/
-│   ├── rings.js        # 几何数据:25 组眼环 + 3 种身体轮廓
-│   ├── emotions.js     # 32 种表情配置(纯数据,含中英文案)
-│   ├── i18n.js         # 界面文案字典(zh / en)
-│   ├── ball.js         # 渲染层:SVG 绘制、球面投影、彩带、撒花
-│   ├── engine.js       # 驱动层:状态机、弹簧动画、表情池、对外 SDK
-│   └── app.js          # 交互层:展示馆站点外壳
-├── assets/
-│   ├── img/            # 站点图标(favicon)
-│   └── screenshots/    # README 预览截图
-└── .cursor/skills/     # AI 协作 Skills:表情设计规范 + 集成实践
+```text
+bridge/          Codex 本地状态跟踪与 HTTP/SSE 桥接
+desktop-host/    WinForms + WebView2 透明桌面宿主
+js/              emotion-ball 动画引擎与桌宠前端逻辑
+css/             桌宠和状态页样式
+docs/images/     README 宣传截图
+scripts/         可复现的 Release 打包脚本
 ```
 
-## 许可
+## 上游、字体与许可
 
-本项目采用**双许可(Dual License)**模式:
+- 原项目：[sam70361/emotion-ball](https://github.com/sam70361/emotion-ball)，原始设计、SVG 动画引擎、表情数据与相关素材版权归原作者所有。
+- 本仓库保留原项目提交历史、`LICENSE`、`LICENSE-COMMERCIAL.md` 与署名，并明确标注桌面端修改。
+- 本项目默认受上游“仅供学习交流、禁止商业用途”许可约束。商业使用请按原项目许可联系原作者。
+- PingFangSC 文件未随源码或 Release 再分发，因为其参考仓库没有提供可验证的再分发许可证。若系统已安装苹方会优先使用，否则回退到 Windows 自带的 Microsoft YaHei UI。
 
-| | 社区许可(默认) | 商业许可 |
-| --- | --- | --- |
-| 对应文件 | [LICENSE](LICENSE) | [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) |
-| 费用 | 免费 | 小额一次性买断 |
-| 适用场景 | 个人学习、研究、技术交流,非商业分享(注明出处) | 集成到商业产品或服务、闭源二次开发、付费交付等一切商业用途 |
-
-> 商业授权定价十分亲民,小额一次性即可永久合规 —— 远低于未经授权商用所面临的法律与商誉风险,完全没有必要冒险。适用场景与购买流程详见 [docs/LICENSING.md](docs/LICENSING.md)。
-
-商业授权与合作,请邮件联系:**1251579308@qq.com**
+更多说明见 [许可指南](docs/LICENSING.md) 与 [第三方声明](NOTICE.md)。

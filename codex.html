@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Emotion Ball · Codex</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link rel="stylesheet" href="css/codex.css">
+</head>
+<body>
+  <main class="companion-shell">
+    <section class="ball-stage" aria-label="Codex 状态宠物">
+      <div id="codexBall" class="codex-ball"></div>
+      <div class="status-panel">
+        <div class="status-heading">
+          <span id="connectionDot" class="connection-dot" aria-hidden="true"></span>
+          <span id="statusName">正在连接 Codex…</span>
+        </div>
+        <p id="statusTips" class="status-tips">等待本地桥接服务发送状态</p>
+        <p id="threadInfo" class="thread-info"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/rings.js"></script>
+  <script src="js/emotions.js"></script>
+  <script src="js/ball.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/codex-bridge.js"></script>
+</body>
+</html>
