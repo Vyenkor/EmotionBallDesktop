@@ -24,10 +24,11 @@ A transparent Windows desktop pet that reacts to Codex and the application you a
 
 ## Quick start
 
-1. Download `EmotionBallDesktop-v*-win-x64.zip` from [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases).
-2. Extract the entire archive to a normal folder. Do not run it from inside the ZIP preview.
-3. Double-click `EmotionBallDesktop.exe`.
-4. Right-click the pet for settings. Exit from either the pet menu or the tray menu.
+1. Download `EmotionBallDesktop-v*-setup.exe` from [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases).
+2. Double-click the EXE. It extracts the complete runtime and starts the pet automatically.
+3. Right-click the pet for settings. Exit from either the pet menu or the tray menu.
+
+Alternatively, download the `EmotionBallDesktop-v*-win-x64.zip` portable package, extract it completely, and run `EmotionBallDesktop.exe`.
 
 The portable archive includes the x64 .NET and Node.js runtimes. No Node.js or .NET SDK installation is required. Microsoft Edge WebView2 Runtime is still required and is included with most Windows 10/11 installations.
 
@@ -89,7 +90,7 @@ Create the portable release:
 .\scripts\build-release.ps1 -Version 1.0.0
 ```
 
-The release script produces a clean root containing only the executable, bilingual documentation, licenses, and a `resources` directory, followed by a ZIP and SHA-256 checksum.
+The release script produces a clean portable directory, ZIP and checksums, plus a self-extracting `setup.exe` that can be launched directly.
 
 ## Repository layout
 

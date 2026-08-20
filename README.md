@@ -24,10 +24,11 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases) 下载 `EmotionBallDesktop-v*-win-x64.zip`。
-2. 将压缩包完整解压到普通文件夹，不能直接在压缩包预览窗口中运行。
-3. 双击 `EmotionBallDesktop.exe`。
-4. 右键桌宠打开设置菜单；需要退出时可从桌宠菜单或系统托盘退出。
+1. 从 [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases) 下载 `EmotionBallDesktop-v*-setup.exe`。
+2. 双击 EXE，程序会自动释放完整运行资源并启动桌宠。
+3. 右键桌宠打开设置菜单；需要退出时可从桌宠菜单或系统托盘退出。
+
+也可以下载 `EmotionBallDesktop-v*-win-x64.zip` 便携包，完整解压后运行其中的 `EmotionBallDesktop.exe`。
 
 便携包已包含 x64 .NET 与 Node.js 运行时，不需要安装 Node.js 或 .NET SDK。Windows 仍需提供 Microsoft Edge WebView2 Runtime；多数 Windows 10/11 已自带。
 
@@ -89,7 +90,7 @@ dotnet build .\desktop-host\EmotionBallDesktop.csproj -c Release
 .\scripts\build-release.ps1 -Version 1.0.0
 ```
 
-构建脚本会生成精简结构：根目录只保留 EXE、双语说明、许可证和 `resources` 资源目录，并输出 ZIP 与 SHA-256 文件。
+构建脚本会生成精简便携目录、ZIP 与校验文件，同时生成可直接双击运行的自释放 `setup.exe`。
 
 ## 项目结构
 

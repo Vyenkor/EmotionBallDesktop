@@ -12,10 +12,13 @@ $packageDirectory = [IO.Path]::GetFullPath((Join-Path $releaseRoot $packageName)
 $publishDirectory = [IO.Path]::GetFullPath((Join-Path $releaseRoot ".publish-$Version"))
 $archivePath = [IO.Path]::GetFullPath((Join-Path $releaseRoot "$packageName.zip"))
 $checksumPath = "$archivePath.sha256"
+$setupPublishDirectory = [IO.Path]::GetFullPath((Join-Path $releaseRoot ".setup-publish-$Version"))
+$setupPath = [IO.Path]::GetFullPath((Join-Path $releaseRoot "EmotionBallDesktop-v$Version-setup.exe"))
+$setupChecksumPath = "$setupPath.sha256"
 
 New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 $releasePrefix = $releaseRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
-foreach ($target in @($packageDirectory, $publishDirectory)) {
+foreach ($target in @($packageDirectory, $publishDirectory, $setupPublishDirectory)) {
     if (-not $target.StartsWith($releasePrefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Unsafe release target: $target"
     }
@@ -23,7 +26,7 @@ foreach ($target in @($packageDirectory, $publishDirectory)) {
         Remove-Item -LiteralPath $target -Recurse -Force
     }
 }
-foreach ($target in @($archivePath, $checksumPath)) {
+foreach ($target in @($archivePath, $checksumPath, $setupPath, $setupChecksumPath)) {
     if (Test-Path -LiteralPath $target) {
         Remove-Item -LiteralPath $target -Force
     }
@@ -83,11 +86,30 @@ Compress-Archive -LiteralPath $packageDirectory -DestinationPath $archivePath -C
 $hash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
 [IO.File]::WriteAllText($checksumPath, "$hash  $([IO.Path]::GetFileName($archivePath))`n", [Text.UTF8Encoding]::new($false))
 
+dotnet publish (Join-Path $projectRoot 'installer\EmotionBallDesktop.Setup.csproj') `
+    -c Release `
+    -r win-x64 `
+    --self-contained true `
+    -o $setupPublishDirectory `
+    -p:PublishSingleFile=true `
+    -p:EnableCompressionInSingleFile=true `
+    -p:DebugType=None `
+    -p:DebugSymbols=false `
+    -p:PayloadZip=$archivePath
+
+Copy-Item -LiteralPath (Join-Path $setupPublishDirectory 'EmotionBallDesktopSetup.exe') -Destination $setupPath
+$setupHash = (Get-FileHash -LiteralPath $setupPath -Algorithm SHA256).Hash
+[IO.File]::WriteAllText($setupChecksumPath, "$setupHash  $([IO.Path]::GetFileName($setupPath))`n", [Text.UTF8Encoding]::new($false))
+
 Remove-Item -LiteralPath $publishDirectory -Recurse -Force
+Remove-Item -LiteralPath $setupPublishDirectory -Recurse -Force
 
 [pscustomobject]@{
     Package = $packageDirectory
     Archive = $archivePath
     Sha256 = $hash
     SizeMB = [math]::Round((Get-Item -LiteralPath $archivePath).Length / 1MB, 2)
+    Setup = $setupPath
+    SetupSha256 = $setupHash
+    SetupSizeMB = [math]::Round((Get-Item -LiteralPath $setupPath).Length / 1MB, 2)
 }

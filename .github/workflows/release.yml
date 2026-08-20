@@ -37,4 +37,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $archive = ".release\EmotionBallDesktop-v${{ inputs.version }}-win-x64.zip"
-          gh release upload '${{ inputs.tag }}' $archive "$archive.sha256" --clobber
+          $setup = ".release\EmotionBallDesktop-v${{ inputs.version }}-setup.exe"
+          gh release upload '${{ inputs.tag }}' $setup "$setup.sha256" $archive "$archive.sha256" --clobber

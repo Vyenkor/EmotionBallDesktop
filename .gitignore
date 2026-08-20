@@ -9,6 +9,8 @@ docs/口播与发布文案.md
 desktop-app/
 desktop-host/bin/
 desktop-host/obj/
+installer/bin/
+installer/obj/
 desktop-host/Fonts/
 README.codex.md
 packaging/
