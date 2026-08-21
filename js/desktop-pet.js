@@ -100,6 +100,11 @@
         }
       } else if (data.type === 'set-dragging') {
         setDragging(Boolean(data.active));
+      } else if (data.type === 'set-hover-dimmed') {
+        if (typeof data.opacity === 'number') {
+          document.body.style.setProperty('--hover-opacity', String(data.opacity));
+        }
+        document.body.classList.toggle('hover-dimmed', Boolean(data.dimmed));
       }
     });
   }

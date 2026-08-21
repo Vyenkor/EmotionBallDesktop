@@ -73,6 +73,7 @@ internal sealed class PetForm : Form
     private const int MaximumWindowSize = 640;
     private const int ResizeStep = 32;
     private const int ScreenMargin = 24;
+    private const int HoverTriggerPadding = 18;
     private static readonly TimeSpan InputIdleThreshold = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IdleBubbleVisibleDuration = TimeSpan.FromSeconds(3);
 
@@ -84,6 +85,8 @@ internal sealed class PetForm : Form
     private readonly ToolStripMenuItem _topMostItem;
     private readonly ToolStripMenuItem _codexBubbleItem;
     private readonly ToolStripMenuItem _appBubbleItem;
+    private readonly ToolStripMenuItem _hoverPassThroughItem;
+    private readonly ToolStripMenuItem _edgeRelocationItem;
     private readonly Dictionary<string, ToolStripMenuItem> _shapeItems = new();
     private readonly Dictionary<string, ToolStripMenuItem> _bubblePositionItems = new();
     private readonly BridgeProcessManager _bridgeManager;
@@ -91,6 +94,7 @@ internal sealed class PetForm : Form
     private readonly System.Windows.Forms.Timer _localActivityTimer;
     private readonly System.Windows.Forms.Timer _stateSaveTimer;
     private readonly System.Windows.Forms.Timer _noticeTimer;
+    private readonly System.Windows.Forms.Timer _hoverFadeTimer;
     private readonly Random _random = new();
     private readonly LowLevelMouseProc _mouseHookProc;
     private readonly bool _qaMode;
@@ -102,6 +106,21 @@ internal sealed class PetForm : Form
     private string _selectedBubblePosition = "above";
     private bool _showCodexBubble = true;
     private bool _showAppBubble = true;
+    private bool _hoverPassThroughEnabled = true;
+    private bool _edgeRelocationEnabled = true;
+    private int _hoverVisiblePercent = 45;
+    private ToolStripMenuItem? _currentFadeItem;
+    private bool _hoverDimmed;
+    private bool _hoverEdgeMoveDone;
+    private bool _hoverUpdatePending;
+    private int _hoverVisualPercent = 100;
+    private int _hoverBubbleVisualPercent = 100;
+    private int _hoverFadeStartPercent = 100;
+    private int _hoverFadeTargetPercent = 100;
+    private int _hoverBubbleFadeStartPercent = 100;
+    private int _hoverBubbleFadeTargetPercent = 100;
+    private DateTime _hoverFadeStartedAt;
+    private static readonly TimeSpan HoverFadeDuration = TimeSpan.FromMilliseconds(180);
     private bool _dismissCodexForCurrentTask;
     private bool _leftButtonDown;
     private bool _systemDragActive;
@@ -183,6 +202,8 @@ internal sealed class PetForm : Form
         };
         _noticeTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _noticeTimer.Tick += (_, _) => EndQuickSettingNotice();
+        _hoverFadeTimer = new System.Windows.Forms.Timer { Interval = 16 };
+        _hoverFadeTimer.Tick += (_, _) => AdvanceHoverFade();
         Text = qaMode
             ? "Emotionball-Deskpet · Codex [QA]"
             : "Emotionball-Deskpet · Codex";
@@ -270,6 +291,7 @@ internal sealed class PetForm : Form
         bubbleVisibilityMenu.DropDownItems.Add(_appBubbleItem);
         bubbleMenu.DropDownItems.Add(bubbleVisibilityMenu);
         _menu.Items.Add(bubbleMenu);
+        _menu.Items.Add(CreateHoverOpacityMenu());
         UpdateBubblePositionMenuChecks();
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add("重新连接", null, (_, _) => _webView.Reload());
@@ -277,6 +299,34 @@ internal sealed class PetForm : Form
 
         _trayMenu = new ContextMenuStrip();
         _trayMenu.Items.Add(new ToolStripMenuItem("Emotionball-Deskpet 服务运行中") { Enabled = false });
+        _trayMenu.Items.Add(new ToolStripSeparator());
+        _hoverPassThroughItem = new ToolStripMenuItem("悬停淡化并穿透")
+        {
+            Checked = _hoverPassThroughEnabled,
+            CheckOnClick = true,
+            ToolTipText = "鼠标移到桌宠或气泡上时淡化，并把点击交给下面的窗口"
+        };
+        _hoverPassThroughItem.CheckedChanged += (_, _) =>
+        {
+            _hoverPassThroughEnabled = _hoverPassThroughItem.Checked;
+            ApplyHoverState(Cursor.Position);
+            ShowQuickSettingNotice(_hoverPassThroughEnabled ? "悬停穿透开" : "悬停穿透关");
+            ScheduleWindowStateSave();
+        };
+        _trayMenu.Items.Add(_hoverPassThroughItem);
+        _edgeRelocationItem = new ToolStripMenuItem("淡化后随机换位")
+        {
+            Checked = _edgeRelocationEnabled,
+            CheckOnClick = true,
+            ToolTipText = "气泡渐隐完成后，把桌宠移到屏幕边缘的安全位置"
+        };
+        _edgeRelocationItem.CheckedChanged += (_, _) =>
+        {
+            _edgeRelocationEnabled = _edgeRelocationItem.Checked;
+            ShowQuickSettingNotice(_edgeRelocationEnabled ? "随机换位开" : "随机换位关");
+            ScheduleWindowStateSave();
+        };
+        _trayMenu.Items.Add(_edgeRelocationItem);
         _trayMenu.Items.Add(new ToolStripSeparator());
         _trayMenu.Items.Add("重新连接", null, (_, _) => _webView.Reload());
         _trayMenu.Items.Add("退出桌宠", null, (_, _) => Close());
@@ -371,6 +421,7 @@ internal sealed class PetForm : Form
             {
                 SendHostLayout();
                 SendShapeToPage();
+                SendHoverOpacityToPage();
             };
             _webView.Source = new Uri(_url);
         }
@@ -408,6 +459,88 @@ internal sealed class PetForm : Form
         item.Click += (_, _) => SetShape(shape);
         _shapeItems[shape] = item;
         parent.DropDownItems.Add(item);
+    }
+
+    private ToolStripMenuItem CreateHoverOpacityMenu()
+    {
+        var menu = new ToolStripMenuItem("淡化");
+        _currentFadeItem = new ToolStripMenuItem();
+        _currentFadeItem.Click += (_, _) =>
+        {
+            var fadePercent = PromptForFadePercent(100 - _hoverVisiblePercent, "设置当前淡化强度");
+            if (fadePercent.HasValue) SetHoverFadePercent(fadePercent.Value);
+        };
+        menu.DropDownItems.Add(_currentFadeItem);
+        UpdateFadeMenuLabels();
+        return menu;
+    }
+
+    private void SetHoverFadePercent(int fadePercent)
+    {
+        _hoverVisiblePercent = 100 - Math.Clamp(fadePercent, 0, 100);
+        UpdateFadeMenuLabels();
+        if (_hoverDimmed)
+        {
+            StartHoverVisualTransition(true);
+        }
+        ShowQuickSettingNotice($"淡化{100 - _hoverVisiblePercent}%");
+        ScheduleWindowStateSave();
+    }
+
+    private void UpdateFadeMenuLabels()
+    {
+        if (_currentFadeItem is not null)
+        {
+            _currentFadeItem.Text = $"淡化强度：{100 - _hoverVisiblePercent}%";
+        }
+    }
+
+    private int? PromptForFadePercent(int initialPercent, string title)
+    {
+        using var dialog = new Form
+        {
+            Text = title,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterScreen,
+            ClientSize = new Size(300, 126),
+            MinimizeBox = false,
+            MaximizeBox = false,
+            ShowInTaskbar = false,
+            TopMost = TopMost
+        };
+        var label = new Label
+        {
+            AutoSize = true,
+            Text = "淡化强度",
+            Location = new Point(16, 16)
+        };
+        var input = new NumericUpDown
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Value = Math.Clamp(initialPercent, 0, 100),
+            DecimalPlaces = 0,
+            Location = new Point(16, 45),
+            Width = 110
+        };
+        var ok = new Button
+        {
+            Text = "确定",
+            DialogResult = DialogResult.OK,
+            Location = new Point(158, 78),
+            Width = 58
+        };
+        var cancel = new Button
+        {
+            Text = "取消",
+            DialogResult = DialogResult.Cancel,
+            Location = new Point(224, 78),
+            Width = 58
+        };
+        dialog.Controls.AddRange([label, input, ok, cancel]);
+        dialog.AcceptButton = ok;
+        dialog.CancelButton = cancel;
+        return dialog.ShowDialog(this) == DialogResult.OK ? (int)input.Value : null;
     }
 
     private void SetShape(string shape)
@@ -498,9 +631,11 @@ internal sealed class PetForm : Form
         SaveWindowState();
         _localActivityTimer.Stop();
         _noticeTimer.Stop();
+        _hoverFadeTimer.Stop();
         _localActivityTimer.Dispose();
         _stateSaveTimer.Dispose();
         _noticeTimer.Dispose();
+        _hoverFadeTimer.Dispose();
         _inputOverlay?.Close();
         _inputOverlay?.Dispose();
         _statusBubble?.Close();
@@ -523,19 +658,187 @@ internal sealed class PetForm : Form
 
     private nint OnLowLevelMouseEvent(int code, nint wParam, nint lParam)
     {
-        if (code >= 0 && wParam == WmMouseMove)
+        if (code >= 0)
         {
             var hookData = Marshal.PtrToStructure<MouseHookData>(lParam);
-            QueueGazeUpdate(hookData.Point);
-            if (!_mouseWakePending && !_codexTaskActive
-                && (_localContextKey == "idle" || _idleBubbleAutoHidden)
-                && hookData.Point != _lastObservedCursorPosition)
+            if (wParam == WmMouseMove)
             {
-                _mouseWakePending = true;
-                BeginInvoke(new Action(() => WakeFromMouseMovement(hookData.Point)));
+                QueueGazeUpdate(hookData.Point);
+                QueueHoverStateUpdate(hookData.Point);
+
+                if (!_mouseWakePending && !_codexTaskActive
+                    && (_localContextKey == "idle" || _idleBubbleAutoHidden)
+                    && hookData.Point != _lastObservedCursorPosition)
+                {
+                    _mouseWakePending = true;
+                    BeginInvoke(new Action(() => WakeFromMouseMovement(hookData.Point)));
+                }
             }
         }
         return CallNextHookEx(_mouseHook, code, wParam, lParam);
+    }
+
+    private void QueueHoverStateUpdate(Point cursorPosition)
+    {
+        if (IsDisposed || Disposing) return;
+        _latestGazeCursorPosition = cursorPosition;
+        if (_hoverUpdatePending) return;
+
+        _hoverUpdatePending = true;
+        try
+        {
+            BeginInvoke(new Action(() =>
+            {
+                _hoverUpdatePending = false;
+                ApplyHoverState(_latestGazeCursorPosition);
+            }));
+        }
+        catch (InvalidOperationException)
+        {
+            _hoverUpdatePending = false;
+        }
+    }
+
+    private void ApplyHoverState(Point cursorPosition)
+    {
+        var shouldDim = _hoverPassThroughEnabled && IsPointOverHoverSurface(cursorPosition);
+        if (_hoverDimmed == shouldDim) return;
+
+        _hoverDimmed = shouldDim;
+        if (!shouldDim) _hoverEdgeMoveDone = false;
+        _inputOverlay?.SetClickThrough(shouldDim);
+        _statusBubble?.SetClickThrough(shouldDim);
+        _noticeBubble?.SetClickThrough(shouldDim);
+        StartHoverVisualTransition(shouldDim);
+    }
+
+    private void StartHoverVisualTransition(bool dimmed)
+    {
+        _hoverFadeStartPercent = _hoverVisualPercent;
+        _hoverFadeTargetPercent = dimmed ? _hoverVisiblePercent : 100;
+        _hoverBubbleFadeStartPercent = _hoverBubbleVisualPercent;
+        _hoverBubbleFadeTargetPercent = dimmed ? 0 : 100;
+        if (_hoverFadeStartPercent == _hoverFadeTargetPercent
+            && _hoverBubbleFadeStartPercent == _hoverBubbleFadeTargetPercent)
+        {
+            ApplyHoverVisualPercent(_hoverFadeTargetPercent, _hoverBubbleFadeTargetPercent);
+            return;
+        }
+
+        _hoverFadeStartedAt = DateTime.UtcNow;
+        _hoverFadeTimer.Start();
+    }
+
+    private void AdvanceHoverFade()
+    {
+        var progress = Math.Clamp(
+            (DateTime.UtcNow - _hoverFadeStartedAt).TotalMilliseconds / HoverFadeDuration.TotalMilliseconds,
+            0d,
+            1d);
+        var eased = progress * progress * (3d - 2d * progress);
+        var nextBody = (int)Math.Round(_hoverFadeStartPercent + (_hoverFadeTargetPercent - _hoverFadeStartPercent) * eased);
+        var nextBubble = (int)Math.Round(_hoverBubbleFadeStartPercent + (_hoverBubbleFadeTargetPercent - _hoverBubbleFadeStartPercent) * eased);
+        ApplyHoverVisualPercent(nextBody, nextBubble);
+        if (progress >= 1d)
+        {
+            _hoverFadeTimer.Stop();
+            ApplyHoverVisualPercent(_hoverFadeTargetPercent, _hoverBubbleFadeTargetPercent);
+            if (_hoverDimmed && _edgeRelocationEnabled && !_hoverEdgeMoveDone)
+            {
+                _hoverEdgeMoveDone = true;
+                RandomizePetToScreenEdge();
+            }
+        }
+    }
+
+    private void RandomizePetToScreenEdge()
+    {
+        var workingArea = Screen.FromRectangle(Bounds).WorkingArea;
+        var margin = Math.Max(18, Math.Min(32, Math.Min(Width, Height) / 8));
+        var width = Math.Min(Width, workingArea.Width - margin * 2);
+        var height = Math.Min(Height, workingArea.Height - margin * 2);
+        if (width <= 0 || height <= 0) return;
+
+        var cursorHotZone = new Rectangle(Cursor.Position.X - 160, Cursor.Position.Y - 160, 320, 320);
+        var centerHotZone = new Rectangle(
+            workingArea.Left + workingArea.Width / 4,
+            workingArea.Top + workingArea.Height / 4,
+            workingArea.Width / 2,
+            workingArea.Height / 2);
+
+        for (var attempt = 0; attempt < 24; attempt++)
+        {
+            var edge = _random.Next(4);
+            var x = workingArea.Left + margin;
+            var y = workingArea.Top + margin;
+            switch (edge)
+            {
+                case 0:
+                    x = RandomCoordinate(workingArea.Left + margin, workingArea.Right - width - margin);
+                    break;
+                case 1:
+                    x = RandomCoordinate(workingArea.Left + margin, workingArea.Right - width - margin);
+                    y = workingArea.Bottom - height - margin;
+                    break;
+                case 2:
+                    y = RandomCoordinate(workingArea.Top + margin, workingArea.Bottom - height - margin);
+                    break;
+                default:
+                    x = workingArea.Right - width - margin;
+                    y = RandomCoordinate(workingArea.Top + margin, workingArea.Bottom - height - margin);
+                    break;
+            }
+
+            var candidate = new Rectangle(x, y, width, height);
+            if (candidate.IntersectsWith(cursorHotZone) || candidate.IntersectsWith(centerHotZone)) continue;
+            Bounds = candidate;
+            ApplyHoverState(Cursor.Position);
+            return;
+        }
+
+        var fallback = ClampBoundsToWorkingArea(
+            new Rectangle(workingArea.Left + margin, workingArea.Top + margin, width, height),
+            workingArea);
+        Bounds = fallback;
+        ApplyHoverState(Cursor.Position);
+    }
+
+    private int RandomCoordinate(int minimum, int maximum) =>
+        maximum <= minimum ? minimum : _random.Next(minimum, maximum + 1);
+
+    private void ApplyHoverVisualPercent(int bodyVisiblePercent, int bubbleVisiblePercent)
+    {
+        _hoverVisualPercent = Math.Clamp(bodyVisiblePercent, 0, 100);
+        _hoverBubbleVisualPercent = Math.Clamp(bubbleVisiblePercent, 0, 100);
+        _statusBubble?.SetHoverVisualPercent(_hoverBubbleVisualPercent);
+        _noticeBubble?.SetHoverVisualPercent(_hoverBubbleVisualPercent);
+        SendHoverOpacityToPage();
+    }
+
+    private void SendHoverOpacityToPage()
+    {
+        if (_webView.CoreWebView2 is not null && !_webView.IsDisposed)
+        {
+            _webView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            {
+                type = "set-hover-dimmed",
+                dimmed = _hoverVisualPercent < 100,
+                opacity = _hoverVisualPercent / 100d
+            }));
+        }
+    }
+
+    private bool IsPointOverHoverSurface(Point cursorPosition) =>
+        IsWithinHoverTrigger(Bounds, cursorPosition)
+        || (_statusBubble is { IsDisposed: false, Visible: true }
+            && IsWithinHoverTrigger(_statusBubble.Bounds, cursorPosition))
+        || (_noticeBubble is { IsDisposed: false, Visible: true }
+            && IsWithinHoverTrigger(_noticeBubble.Bounds, cursorPosition));
+
+    private static bool IsWithinHoverTrigger(Rectangle bounds, Point cursorPosition)
+    {
+        bounds.Inflate(HoverTriggerPadding, HoverTriggerPadding);
+        return bounds.Contains(cursorPosition);
     }
 
     private void QueueGazeUpdate(Point cursorPosition)
@@ -964,6 +1267,9 @@ internal sealed class PetForm : Form
             var legacyBubbleVisibility = state.ShowBubble ?? true;
             _showCodexBubble = state.ShowCodexBubble ?? legacyBubbleVisibility;
             _showAppBubble = state.ShowAppBubble ?? legacyBubbleVisibility;
+            _hoverPassThroughEnabled = state.HoverPassThrough ?? true;
+            _edgeRelocationEnabled = state.EdgeRelocation ?? true;
+            _hoverVisiblePercent = Math.Clamp(state.HoverVisiblePercent ?? 45, 0, 100);
         }
         catch (IOException)
         {
@@ -998,7 +1304,10 @@ internal sealed class PetForm : Form
                 _selectedBubblePosition,
                 null,
                 _showCodexBubble,
-                _showAppBubble);
+                _showAppBubble,
+                _hoverPassThroughEnabled,
+                _edgeRelocationEnabled,
+                _hoverVisiblePercent);
             File.WriteAllText(_windowStatePath, JsonSerializer.Serialize(state));
         }
         catch (IOException)
@@ -1041,6 +1350,7 @@ internal sealed class PetForm : Form
         _noticeBubble.SizeChanged += (_, _) => SyncNoticeBubbleBounds();
         SyncStatusBubbleBounds();
         ApplyStatusBubbleVisibility();
+        ApplyHoverState(Cursor.Position);
     }
 
     private void SyncInputOverlayBounds()
@@ -1116,12 +1426,31 @@ internal sealed class PetForm : Form
         string? BubblePosition = null,
         bool? ShowBubble = null,
         bool? ShowCodexBubble = null,
-        bool? ShowAppBubble = null);
+        bool? ShowAppBubble = null,
+        bool? HoverPassThrough = null,
+        bool? EdgeRelocation = null,
+        int? HoverVisiblePercent = null);
 }
 
 internal sealed class PetInputOverlay : Form
 {
+    private const int WmNcHitTest = 0x0084;
+    private const int HtTransparent = -1;
+    private const int GwlExStyle = -20;
+    private const int WsExTransparent = 0x00000020;
+    private bool _clickThrough;
+
     protected override bool ShowWithoutActivation => true;
+
+    public void SetClickThrough(bool clickThrough)
+    {
+        _clickThrough = clickThrough;
+        if (!IsHandleCreated) return;
+
+        var exStyle = GetWindowLongPtr(Handle, GwlExStyle).ToInt64();
+        exStyle = clickThrough ? exStyle | WsExTransparent : exStyle & ~WsExTransparent;
+        SetWindowLongPtr(Handle, GwlExStyle, new nint(exStyle));
+    }
 
     public PetInputOverlay(PetForm pet)
     {
@@ -1149,6 +1478,23 @@ internal sealed class PetInputOverlay : Form
             return parameters;
         }
     }
+
+    protected override void WndProc(ref Message message)
+    {
+        if (_clickThrough && message.Msg == WmNcHitTest)
+        {
+            message.Result = (nint)HtTransparent;
+            return;
+        }
+
+        base.WndProc(ref message);
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    private static extern nint GetWindowLongPtr(nint window, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    private static extern nint SetWindowLongPtr(nint window, int index, nint value);
 }
 
 internal sealed class StatusBubbleForm : Form
@@ -1167,6 +1513,8 @@ internal sealed class StatusBubbleForm : Form
     private const int WrappedLocalHeight = 96;
     private const int WmNcHitTest = 0x0084;
     private const int HtTransparent = -1;
+    private const int GwlExStyle = -20;
+    private const int WsExTransparent = 0x00000020;
     private const int WsExLayered = 0x00080000;
     private const int UlwAlpha = 0x00000002;
     private const byte AcSrcOver = 0x00;
@@ -1183,6 +1531,8 @@ internal sealed class StatusBubbleForm : Form
     private bool _wrapPrimary;
     private bool _temporaryDismissEnabled;
     private bool _closeButtonVisible;
+    private bool _clickThrough;
+    private int _hoverVisualPercent = 100;
     private Point _layeredLocation;
 
     public event EventHandler? TemporaryDismissRequested;
@@ -1214,6 +1564,24 @@ internal sealed class StatusBubbleForm : Form
         if (enabled || !_closeButtonVisible) return;
         _closeButtonVisible = false;
         Cursor = Cursors.Default;
+        RenderLayeredWindow();
+    }
+
+    public void SetClickThrough(bool clickThrough)
+    {
+        _clickThrough = clickThrough;
+        if (!IsHandleCreated) return;
+
+        var exStyle = GetWindowLongPtr(Handle, GwlExStyle).ToInt64();
+        exStyle = clickThrough ? exStyle | WsExTransparent : exStyle & ~WsExTransparent;
+        SetWindowLongPtr(Handle, GwlExStyle, new nint(exStyle));
+    }
+
+    public void SetHoverVisualPercent(int visiblePercent)
+    {
+        visiblePercent = Math.Clamp(visiblePercent, 0, 100);
+        if (_hoverVisualPercent == visiblePercent) return;
+        _hoverVisualPercent = visiblePercent;
         RenderLayeredWindow();
     }
 
@@ -1331,50 +1699,54 @@ internal sealed class StatusBubbleForm : Form
         graphics.CompositingQuality = CompositingQuality.HighQuality;
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
 
-        var bubbleRectangle = new RectangleF(
-            ShadowLeft + 0.5f,
-            ShadowTop + 0.5f,
-            _bubbleContentSize.Width - 1f,
-            _bubbleContentSize.Height - 1f);
-        var bubbleRadius = _wrapPrimary ? 30f : (_bubbleContentSize.Height - 1f) / 2f;
-        DrawBubbleShadow(graphics, bubbleRectangle, bubbleRadius);
-        using var bubblePath = CreateRoundedRectangle(bubbleRectangle, bubbleRadius);
-        using var fill = new SolidBrush(Color.FromArgb(255, 253, 248));
-        graphics.FillPath(fill, bubblePath);
-
-        using var primaryBrush = new SolidBrush(Color.FromArgb(48, 48, 45));
-        using var secondaryBrush = new SolidBrush(Color.FromArgb(119, 119, 113));
-        using var primaryFont = CreateFont(
-            BubbleFontWeight.Semibold,
-            _showTask ? TaskTitleFontSize : CompactFontSize);
-        using var format = CreateTextFormat();
-        if (_showTask)
+        var visualAlpha = 255 * _hoverVisualPercent / 100;
+        if (visualAlpha > 0)
         {
-            using var statusFont = CreateFont(BubbleFontWeight.Medium, TaskStatusFontSize);
-            if (_wrapPrimary)
+            var bubbleRectangle = new RectangleF(
+                ShadowLeft + 0.5f,
+                ShadowTop + 0.5f,
+                _bubbleContentSize.Width - 1f,
+                _bubbleContentSize.Height - 1f);
+            var bubbleRadius = _wrapPrimary ? 30f : (_bubbleContentSize.Height - 1f) / 2f;
+            DrawBubbleShadow(graphics, bubbleRectangle, bubbleRadius, _hoverVisualPercent / 100f);
+            using var bubblePath = CreateRoundedRectangle(bubbleRectangle, bubbleRadius);
+            using var fill = new SolidBrush(Color.FromArgb(visualAlpha, 255, 253, 248));
+            graphics.FillPath(fill, bubblePath);
+
+            using var primaryBrush = new SolidBrush(Color.FromArgb(visualAlpha, 48, 48, 45));
+            using var secondaryBrush = new SolidBrush(Color.FromArgb(visualAlpha, 119, 119, 113));
+            using var primaryFont = CreateFont(
+                BubbleFontWeight.Semibold,
+                _showTask ? TaskTitleFontSize : CompactFontSize);
+            using var format = CreateTextFormat();
+            if (_showTask)
             {
-                graphics.DrawString(_primaryLines[0], primaryFont, primaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 7, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 28), format);
-                graphics.DrawString(_primaryLines[1], primaryFont, primaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 32, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 28), format);
-                graphics.DrawString(_displayLabel, statusFont, secondaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 62, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 26), format);
+                using var statusFont = CreateFont(BubbleFontWeight.Medium, TaskStatusFontSize);
+                if (_wrapPrimary)
+                {
+                    graphics.DrawString(_primaryLines[0], primaryFont, primaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 7, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 28), format);
+                    graphics.DrawString(_primaryLines[1], primaryFont, primaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 32, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 28), format);
+                    graphics.DrawString(_displayLabel, statusFont, secondaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 62, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 26), format);
+                }
+                else
+                {
+                    graphics.DrawString(_taskName, primaryFont, primaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 13, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 29), format);
+                    graphics.DrawString(_displayLabel, statusFont, secondaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 43, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 27), format);
+                }
             }
             else
             {
-                graphics.DrawString(_taskName, primaryFont, primaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 13, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 29), format);
-                graphics.DrawString(_displayLabel, statusFont, secondaryBrush, new RectangleF(ShadowLeft + BubbleHorizontalPadding, ShadowTop + 43, _bubbleContentSize.Width - BubbleHorizontalPadding * 2, 27), format);
+                using var compactFormat = CreateTextFormat(StringAlignment.Center);
+                graphics.DrawString(
+                    _displayLabel,
+                    primaryFont,
+                    primaryBrush,
+                    new RectangleF(ShadowLeft, ShadowTop, _bubbleContentSize.Width, _bubbleContentSize.Height),
+                    compactFormat);
             }
-        }
-        else
-        {
-            using var compactFormat = CreateTextFormat(StringAlignment.Center);
-            graphics.DrawString(
-                _displayLabel,
-                primaryFont,
-                primaryBrush,
-                new RectangleF(ShadowLeft, ShadowTop, _bubbleContentSize.Width, _bubbleContentSize.Height),
-                compactFormat);
-        }
 
-        if (_temporaryDismissEnabled && _closeButtonVisible) DrawCloseButton(graphics);
+            if (_temporaryDismissEnabled && _closeButtonVisible) DrawCloseButton(graphics);
+        }
 
         ApplyLayeredBitmap(bitmap);
     }
@@ -1458,7 +1830,7 @@ internal sealed class StatusBubbleForm : Form
         contentSize.Width + ShadowLeft + ShadowRight,
         contentSize.Height + ShadowTop + ShadowBottom);
 
-    private static void DrawBubbleShadow(Graphics graphics, RectangleF bubbleRectangle, float radius)
+    private static void DrawBubbleShadow(Graphics graphics, RectangleF bubbleRectangle, float radius, float alphaScale = 1f)
     {
         var shadowRectangle = bubbleRectangle;
         shadowRectangle.Offset(0, 2f);
@@ -1471,7 +1843,7 @@ internal sealed class StatusBubbleForm : Form
                      (Width: 4f, Alpha: 13)
                  })
         {
-            using var pen = new Pen(Color.FromArgb(layer.Alpha, 24, 31, 38), layer.Width)
+            using var pen = new Pen(Color.FromArgb(Math.Clamp((int)Math.Round(layer.Alpha * alphaScale), 1, 255), 24, 31, 38), layer.Width)
             {
                 LineJoin = LineJoin.Round
             };
@@ -1649,6 +2021,12 @@ internal sealed class StatusBubbleForm : Form
 
     protected override void WndProc(ref Message message)
     {
+        if (_clickThrough && message.Msg == WmNcHitTest)
+        {
+            message.Result = (nint)HtTransparent;
+            return;
+        }
+
         base.WndProc(ref message);
         if (message.Msg != WmNcHitTest || message.Result == nint.Zero) return;
 
@@ -1668,6 +2046,12 @@ internal sealed class StatusBubbleForm : Form
 
     [DllImport("user32.dll")]
     private static extern nint GetDC(nint window);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    private static extern nint GetWindowLongPtr(nint window, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    private static extern nint SetWindowLongPtr(nint window, int index, nint value);
 
     [DllImport("user32.dll")]
     private static extern int ReleaseDC(nint window, nint deviceContext);

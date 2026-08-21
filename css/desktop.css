@@ -20,10 +20,15 @@ body {
 
 body {
   cursor: grab;
+  transition: opacity 60ms linear;
 }
 
 body.dragging {
   cursor: grabbing;
+}
+
+body.hover-dimmed {
+  opacity: var(--hover-opacity, 0.45);
 }
 
 .pet-surface {
