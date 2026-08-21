@@ -47,10 +47,10 @@ jobs:
         run: |
           $version = '${{ env.RELEASE_VERSION }}'.TrimStart('v')
           $tag = '${{ env.RELEASE_TAG }}'
-          $archive = ".release\EmotionBallDesktop-v$version-win-x64.zip"
-          $setup = ".release\EmotionBallDesktop-v$version-setup.exe"
+          $archive = ".release\Emotionball-Deskpet-v$version-win-x64.zip"
+          $setup = ".release\Emotionball-Deskpet-v$version-setup.exe"
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "EmotionBallDesktop $version" --generate-notes
+            gh release create $tag --title "Emotionball-Deskpet $version" --generate-notes
           }
           gh release upload $tag $setup "$setup.sha256" $archive "$archive.sha256" --clobber
