@@ -790,15 +790,28 @@ internal sealed class PetForm : Form
             }
 
             var candidate = new Rectangle(x, y, width, height);
-            if (candidate.IntersectsWith(cursorHotZone) || candidate.IntersectsWith(centerHotZone)) continue;
+            var candidateCenter = new Point(
+                candidate.Left + candidate.Width / 2,
+                candidate.Top + candidate.Height / 2);
+            if (candidate == Bounds
+                || cursorHotZone.Contains(candidateCenter)
+                || centerHotZone.Contains(candidateCenter)) continue;
             Bounds = candidate;
             ApplyHoverState(Cursor.Position);
             return;
         }
 
-        var fallback = ClampBoundsToWorkingArea(
+        var fallbackCandidates = new[]
+        {
             new Rectangle(workingArea.Left + margin, workingArea.Top + margin, width, height),
-            workingArea);
+            new Rectangle(workingArea.Right - width - margin, workingArea.Top + margin, width, height),
+            new Rectangle(workingArea.Left + margin, workingArea.Bottom - height - margin, width, height),
+            new Rectangle(workingArea.Right - width - margin, workingArea.Bottom - height - margin, width, height)
+        };
+        var fallback = fallbackCandidates
+            .Select(candidate => ClampBoundsToWorkingArea(candidate, workingArea))
+            .FirstOrDefault(candidate => candidate != Bounds);
+        if (fallback == Rectangle.Empty) fallback = ClampBoundsToWorkingArea(fallbackCandidates[0], workingArea);
         Bounds = fallback;
         ApplyHoverState(Cursor.Position);
     }
