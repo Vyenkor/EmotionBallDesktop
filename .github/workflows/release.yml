@@ -11,6 +11,13 @@ on:
         description: Existing GitHub Release tag
         required: true
         default: v1.0.0
+  push:
+    tags:
+      - 'v*'
+
+env:
+  RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -30,12 +37,20 @@ jobs:
         run: npm test
       - name: Build portable package
         shell: pwsh
-        run: .\scripts\build-release.ps1 -Version '${{ inputs.version }}'
+        run: |
+          $version = '${{ env.RELEASE_VERSION }}'.TrimStart('v')
+          .\scripts\build-release.ps1 -Version $version
       - name: Upload release files
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $archive = ".release\EmotionBallDesktop-v${{ inputs.version }}-win-x64.zip"
-          $setup = ".release\EmotionBallDesktop-v${{ inputs.version }}-setup.exe"
-          gh release upload '${{ inputs.tag }}' $setup "$setup.sha256" $archive "$archive.sha256" --clobber
+          $version = '${{ env.RELEASE_VERSION }}'.TrimStart('v')
+          $tag = '${{ env.RELEASE_TAG }}'
+          $archive = ".release\EmotionBallDesktop-v$version-win-x64.zip"
+          $setup = ".release\EmotionBallDesktop-v$version-setup.exe"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "EmotionBallDesktop $version" --generate-notes
+          }
+          gh release upload $tag $setup "$setup.sha256" $archive "$archive.sha256" --clobber
