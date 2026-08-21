@@ -41,7 +41,7 @@
     events.addEventListener('status', function (event) {
       setOnline(true);
       try { applyStatus(JSON.parse(event.data)); }
-      catch (error) { console.warn('[EmotionBall Codex] invalid status payload', error); }
+      catch (error) { console.warn('[Emotionball-Deskpet Codex] invalid status payload', error); }
     });
     events.onopen = function () { setOnline(true); };
     events.onerror = function () { setOnline(false); };

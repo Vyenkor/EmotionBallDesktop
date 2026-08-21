@@ -7,13 +7,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $releaseRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot '.release'))
-$packageName = "EmotionBallDesktop-v$Version-win-x64"
+$packageName = "Emotionball-Deskpet-v$Version-win-x64"
 $packageDirectory = [IO.Path]::GetFullPath((Join-Path $releaseRoot $packageName))
 $publishDirectory = [IO.Path]::GetFullPath((Join-Path $releaseRoot ".publish-$Version"))
 $archivePath = [IO.Path]::GetFullPath((Join-Path $releaseRoot "$packageName.zip"))
 $checksumPath = "$archivePath.sha256"
 $setupPublishDirectory = [IO.Path]::GetFullPath((Join-Path $releaseRoot ".setup-publish-$Version"))
-$setupPath = [IO.Path]::GetFullPath((Join-Path $releaseRoot "EmotionBallDesktop-v$Version-setup.exe"))
+$setupPath = [IO.Path]::GetFullPath((Join-Path $releaseRoot "Emotionball-Deskpet-v$Version-setup.exe"))
 $setupChecksumPath = "$setupPath.sha256"
 
 New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
@@ -32,7 +32,7 @@ foreach ($target in @($archivePath, $checksumPath, $setupPath, $setupChecksumPat
     }
 }
 
-dotnet publish (Join-Path $projectRoot 'desktop-host\EmotionBallDesktop.csproj') `
+dotnet publish (Join-Path $projectRoot 'desktop-host\Emotionball-Deskpet.csproj') `
     -c Release `
     -r win-x64 `
     --self-contained true `
@@ -73,11 +73,11 @@ foreach ($fileName in @('README.md', 'README.en.md', 'LICENSE', 'LICENSE-COMMERC
 }
 
 $versionText = @"
-EmotionBallDesktop $Version
+Emotionball-Deskpet $Version
 Windows 10/11 x64 portable release
 Built: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz'))
 Upstream: https://github.com/sam70361/emotion-ball
-Project: https://github.com/Vyenkor/EmotionBallDesktop
+Project: https://github.com/Vyenkor/Emotionball-Deskpet
 License: non-commercial learning and exchange; see LICENSE
 "@
 [IO.File]::WriteAllText((Join-Path $packageDirectory 'VERSION.txt'), $versionText, [Text.UTF8Encoding]::new($false))
@@ -86,7 +86,7 @@ Compress-Archive -LiteralPath $packageDirectory -DestinationPath $archivePath -C
 $hash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
 [IO.File]::WriteAllText($checksumPath, "$hash  $([IO.Path]::GetFileName($archivePath))`n", [Text.UTF8Encoding]::new($false))
 
-dotnet publish (Join-Path $projectRoot 'installer\EmotionBallDesktop.Setup.csproj') `
+dotnet publish (Join-Path $projectRoot 'installer\Emotionball-Deskpet.Setup.csproj') `
     -c Release `
     -r win-x64 `
     --self-contained true `
@@ -97,7 +97,7 @@ dotnet publish (Join-Path $projectRoot 'installer\EmotionBallDesktop.Setup.cspro
     -p:DebugSymbols=false `
     -p:PayloadZip=$archivePath
 
-Copy-Item -LiteralPath (Join-Path $setupPublishDirectory 'EmotionBallDesktopSetup.exe') -Destination $setupPath
+Copy-Item -LiteralPath (Join-Path $setupPublishDirectory 'Emotionball-Deskpet-Setup.exe') -Destination $setupPath
 $setupHash = (Get-FileHash -LiteralPath $setupPath -Algorithm SHA256).Hash
 [IO.File]::WriteAllText($setupChecksumPath, "$setupHash  $([IO.Path]::GetFileName($setupPath))`n", [Text.UTF8Encoding]::new($false))
 

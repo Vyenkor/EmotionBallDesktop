@@ -6,12 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>EmotionBallDesktop</AssemblyName>
-    <RootNamespace>EmotionBallDesktop</RootNamespace>
+    <AssemblyName>Emotionball-Deskpet</AssemblyName>
+    <RootNamespace>EmotionballDeskpet</RootNamespace>
     <Version>1.0.0</Version>
     <Authors>Vyenkor; sam70361 (upstream)</Authors>
     <Description>Unofficial Windows desktop derivative of emotion-ball with Codex and local app status integration.</Description>
-    <RepositoryUrl>https://github.com/Vyenkor/EmotionBallDesktop</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Vyenkor/Emotionball-Deskpet</RepositoryUrl>
     <ApplicationIcon>Assets\EmotionBall.ico</ApplicationIcon>
     <BundlePrivateFonts Condition="'$(BundlePrivateFonts)' == ''">false</BundlePrivateFonts>
   </PropertyGroup>

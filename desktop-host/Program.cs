@@ -8,11 +8,11 @@ using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
-namespace EmotionBallDesktop;
+namespace EmotionballDeskpet;
 
 internal static class Program
 {
-    private const string SingleInstanceMutexName = @"Local\EmotionBallCodexDesktopPet";
+    private const string SingleInstanceMutexName = @"Local\EmotionballDeskpet";
 
     [STAThread]
     private static void Main(string[] args)
@@ -184,8 +184,8 @@ internal sealed class PetForm : Form
         _noticeTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _noticeTimer.Tick += (_, _) => EndQuickSettingNotice();
         Text = qaMode
-            ? "Emotion Ball · Codex Desktop Pet [QA]"
-            : "Emotion Ball · Codex Desktop Pet";
+            ? "Emotionball-Deskpet · Codex [QA]"
+            : "Emotionball-Deskpet · Codex";
         ClientSize = new Size(DefaultWindowSize, DefaultWindowSize);
         MinimumSize = new Size(MinimumWindowSize, MinimumWindowSize);
         MaximumSize = new Size(MaximumWindowSize, MaximumWindowSize);
@@ -276,14 +276,14 @@ internal sealed class PetForm : Form
         _menu.Items.Add("退出桌宠", null, (_, _) => Close());
 
         _trayMenu = new ContextMenuStrip();
-        _trayMenu.Items.Add(new ToolStripMenuItem("Emotion Ball 服务运行中") { Enabled = false });
+        _trayMenu.Items.Add(new ToolStripMenuItem("Emotionball-Deskpet 服务运行中") { Enabled = false });
         _trayMenu.Items.Add(new ToolStripSeparator());
         _trayMenu.Items.Add("重新连接", null, (_, _) => _webView.Reload());
         _trayMenu.Items.Add("退出桌宠", null, (_, _) => Close());
         _trayIcon = new NotifyIcon
         {
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
-            Text = "Emotion Ball · 后台服务运行中",
+            Text = "Emotionball-Deskpet · 后台服务运行中",
             ContextMenuStrip = _trayMenu,
             Visible = false
         };
@@ -377,12 +377,12 @@ internal sealed class PetForm : Form
         catch (Exception error)
         {
             var detail = error.HResult == ResourceInUseHResult
-                ? "WebView2 资源正在被另一个桌宠进程占用。请在任务管理器中结束所有 EmotionBallDesktop.exe 后重试。"
+                ? "WebView2 资源正在被另一个桌宠进程占用。请在任务管理器中结束所有 Emotionball-Deskpet.exe 后重试。"
                 : error.Message;
             MessageBox.Show(
                 this,
                 $"桌宠窗口启动失败：{detail}",
-                "Emotion Ball",
+                "Emotionball-Deskpet",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             Close();

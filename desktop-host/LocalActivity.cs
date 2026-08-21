@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace EmotionBallDesktop;
+namespace EmotionballDeskpet;
 
 internal sealed record LocalPhrase(string Text, string State, string EmotionId);
 

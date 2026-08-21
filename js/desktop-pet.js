@@ -156,7 +156,7 @@
     source.addEventListener('status', function (event) {
       setOnline(true);
       try { applyStatus(JSON.parse(event.data)); }
-      catch (error) { console.warn('[EmotionBall Desktop] invalid status payload', error); }
+      catch (error) { console.warn('[Emotionball-Deskpet] invalid status payload', error); }
     });
     source.onopen = function () { setOnline(true); };
     source.onerror = function () { setOnline(false); };

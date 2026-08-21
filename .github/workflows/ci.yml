@@ -18,4 +18,4 @@ jobs:
       - name: Test bridge
         run: npm test
       - name: Build desktop host
-        run: dotnet build .\desktop-host\EmotionBallDesktop.csproj -c Release
+        run: dotnet build .\desktop-host\Emotionball-Deskpet.csproj -c Release

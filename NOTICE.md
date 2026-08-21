@@ -2,7 +2,7 @@
 
 ## emotion-ball
 
-EmotionBallDesktop is a derivative work based on:
+Emotionball-Deskpet is a derivative work based on:
 
 - Project: `emotion-ball`
 - Author: `sam70361`

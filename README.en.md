@@ -1,4 +1,4 @@
-# EmotionBallDesktop
+# Emotionball-Deskpet
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -6,9 +6,9 @@ A transparent Windows desktop pet that reacts to Codex and the application you a
 
 > This is an unofficial Windows desktop derivative of [sam70361/emotion-ball](https://github.com/sam70361/emotion-ball), not a replica or an official release. The upstream project provides the SVG character, emotion definitions, and animation engine. This repository adds the Windows host, Codex bridge, local app awareness, status bubbles, tray integration, and portable packaging.
 
-![EmotionBallDesktop in action](docs/images/desktop-pet-status.png)
+![Emotionball-Deskpet in action](docs/images/desktop-pet-status.png)
 
-[Download the latest Windows release](https://github.com/Vyenkor/EmotionBallDesktop/releases/latest)
+[Download the latest Windows release](https://github.com/Vyenkor/Emotionball-Deskpet/releases/latest)
 
 ## Features
 
@@ -24,12 +24,12 @@ A transparent Windows desktop pet that reacts to Codex and the application you a
 
 ## Quick start
 
-1. Download `EmotionBallDesktop-v*-win-x64.zip` from [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases).
+1. Download `Emotionball-Deskpet-v*-win-x64.zip` from [Releases](https://github.com/Vyenkor/Emotionball-Deskpet/releases).
 2. Extract the entire ZIP to a normal folder.
-3. Double-click `EmotionBallDesktop.exe` in the extracted folder.
+3. Double-click `Emotionball-Deskpet.exe` in the extracted folder.
 4. Right-click the pet for settings. Exit from either the pet menu or the tray menu.
 
-The Release also provides `EmotionBallDesktop-v*-setup.exe` as an optional one-click alternative when manual extraction is not preferred.
+The Release also provides `Emotionball-Deskpet-v*-setup.exe` as an optional one-click alternative when manual extraction is not preferred.
 
 The portable archive includes the x64 .NET and Node.js runtimes. No Node.js or .NET SDK installation is required. Microsoft Edge WebView2 Runtime is still required and is included with most Windows 10/11 installations.
 
@@ -60,13 +60,13 @@ Codex Desktop is optional. The local app mode continues to work when no Codex ta
 ### The pet does not appear
 
 - Make sure the archive has been fully extracted.
-- Check the notification area for the Emotion Ball icon; double-click it to restore the pet.
-- Check Task Manager for an existing `EmotionBallDesktop.exe`. Only one instance is allowed.
+- Check the notification area for the Emotionball-Deskpet icon; double-click it to restore the pet.
+- Check Task Manager for an existing `Emotionball-Deskpet.exe`. Only one instance is allowed.
 - Install or repair [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
 
 ### `The requested resource is in use (0x800700AA)`
 
-End stale `EmotionBallDesktop.exe` and related `msedgewebview2.exe` processes, verify that `%LOCALAPPDATA%\EmotionBallCodex` is writable, and start the pet again. The app uses `%LOCALAPPDATA%\EmotionBallCodex\WebView2` as a dedicated profile and retries the initialization once.
+End stale `Emotionball-Deskpet.exe` and related `msedgewebview2.exe` processes, verify that `%LOCALAPPDATA%\EmotionBallCodex` is writable, and start the pet again. The app uses `%LOCALAPPDATA%\EmotionBallCodex\WebView2` as a dedicated profile and retries the initialization once.
 
 ### Reset position and settings
 
@@ -82,7 +82,7 @@ Requirements: Windows 10/11 x64, .NET 10 SDK, Node.js 18+, and WebView2 Runtime.
 
 ```powershell
 npm test
-dotnet build .\desktop-host\EmotionBallDesktop.csproj -c Release
+dotnet build .\desktop-host\Emotionball-Deskpet.csproj -c Release
 ```
 
 Create the portable release:

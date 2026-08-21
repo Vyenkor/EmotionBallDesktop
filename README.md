@@ -1,4 +1,4 @@
-# EmotionBallDesktop
+# Emotionball-Deskpet
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -6,9 +6,9 @@
 
 > 本项目是基于 [sam70361/emotion-ball](https://github.com/sam70361/emotion-ball) 制作的 Windows 桌面端衍生项目，不是原项目的官方版本，也不建议称为“复刻”。原项目提供 SVG 小球、表情系统与动画引擎；本项目增加 Windows 桌面宿主、Codex 状态桥接、本地应用状态、气泡、托盘与便携交付。
 
-![EmotionBallDesktop 运行效果](docs/images/desktop-pet-status.png)
+![Emotionball-Deskpet 运行效果](docs/images/desktop-pet-status.png)
 
-[下载最新 Windows 版本](https://github.com/Vyenkor/EmotionBallDesktop/releases/latest)
+[下载最新 Windows 版本](https://github.com/Vyenkor/Emotionball-Deskpet/releases/latest)
 
 ## 功能
 
@@ -26,12 +26,12 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/Vyenkor/EmotionBallDesktop/releases) 下载 `EmotionBallDesktop-v*-win-x64.zip`。
+1. 从 [Releases](https://github.com/Vyenkor/Emotionball-Deskpet/releases) 下载 `Emotionball-Deskpet-v*-win-x64.zip`。
 2. 将 ZIP 完整解压到普通文件夹。
-3. 双击解压目录中的 `EmotionBallDesktop.exe`。
+3. 双击解压目录中的 `Emotionball-Deskpet.exe`。
 4. 右键桌宠打开设置菜单；需要退出时可从桌宠菜单或系统托盘退出。
 
-Release 也提供可直接双击的 `EmotionBallDesktop-v*-setup.exe`，作为不想手动解压时的可选方案。
+Release 也提供可直接双击的 `Emotionball-Deskpet-v*-setup.exe`，作为不想手动解压时的可选方案。
 
 便携包已包含 x64 .NET 与 Node.js 运行时，不需要安装 Node.js 或 .NET SDK。Windows 仍需提供 Microsoft Edge WebView2 Runtime；多数 Windows 10/11 已自带。
 
@@ -62,13 +62,13 @@ Codex Desktop 是可选依赖；没有 Codex 活跃任务时，桌宠仍可使�
 ### 启动后没有出现桌宠
 
 - 确认压缩包已经完整解压。
-- 检查托盘中是否已有 Emotion Ball 图标；双击图标可恢复桌宠。
-- 在任务管理器中确认是否已有 `EmotionBallDesktop.exe`。程序只允许一个实例。
+- 检查托盘中是否已有 Emotionball-Deskpet 图标；双击图标可恢复桌宠。
+- 在任务管理器中确认是否已有 `Emotionball-Deskpet.exe`。程序只允许一个实例。
 - 安装或修复 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
 
 ### `请求的资源在使用中 (0x800700AA)`
 
-结束残留的 `EmotionBallDesktop.exe` 与其 `msedgewebview2.exe`，确认 `%LOCALAPPDATA%\EmotionBallCodex` 可写，然后重新运行。程序使用独立的 `%LOCALAPPDATA%\EmotionBallCodex\WebView2` 数据目录并自动重试一次。
+结束残留的 `Emotionball-Deskpet.exe` 与其 `msedgewebview2.exe`，确认 `%LOCALAPPDATA%\EmotionBallCodex` 可写，然后重新运行。程序使用独立的 `%LOCALAPPDATA%\EmotionBallCodex\WebView2` 数据目录并自动重试一次。
 
 ### 重置位置与设置
 
@@ -84,7 +84,7 @@ Codex Desktop 是可选依赖；没有 Codex 活跃任务时，桌宠仍可使�
 
 ```powershell
 npm test
-dotnet build .\desktop-host\EmotionBallDesktop.csproj -c Release
+dotnet build .\desktop-host\Emotionball-Deskpet.csproj -c Release
 ```
 
 生成便携 Release：

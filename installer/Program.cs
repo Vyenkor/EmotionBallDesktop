@@ -3,12 +3,12 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Security.Cryptography;
 
-namespace EmotionBallDesktop.Setup;
+namespace EmotionballDeskpet.Setup;
 
 internal static class Program
 {
-    private const string PayloadResourceName = "EmotionBallDesktop.Payload.zip";
-    private const string SetupMutexName = @"Local\EmotionBallDesktopSetup";
+    private const string PayloadResourceName = "Emotionball-Deskpet.Payload.zip";
+    private const string SetupMutexName = @"Local\EmotionballDeskpetSetup";
 
     [STAThread]
     private static int Main(string[] args)
@@ -18,7 +18,7 @@ internal static class Program
         using var mutex = new Mutex(initiallyOwned: true, SetupMutexName, out var ownsMutex);
         if (!ownsMutex)
         {
-            MessageBox.Show("安装程序已经在运行。", "EmotionBallDesktop", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("安装程序已经在运行。", "Emotionball-Deskpet", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return 0;
         }
 
@@ -29,7 +29,7 @@ internal static class Program
             var extractOnly = extractOnlyIndex >= 0;
             var installDirectory = extractOnly && extractOnlyIndex + 1 < args.Length
                 ? Path.GetFullPath(args[extractOnlyIndex + 1])
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EmotionBallDesktop", version);
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Emotionball-Deskpet", version);
 
             InstallPayload(installDirectory);
             if (extractOnly)
@@ -37,7 +37,7 @@ internal static class Program
                 return 0;
             }
 
-            var executable = Path.Combine(installDirectory, "EmotionBallDesktop.exe");
+            var executable = Path.Combine(installDirectory, "Emotionball-Deskpet.exe");
             if (!File.Exists(executable))
             {
                 throw new FileNotFoundException("桌宠主程序没有从安装包中释放出来。", executable);
@@ -52,7 +52,7 @@ internal static class Program
         }
         catch (Exception exception)
         {
-            MessageBox.Show($"EmotionBallDesktop 启动失败：\n\n{exception.Message}", "EmotionBallDesktop", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"Emotionball-Deskpet 启动失败：\n\n{exception.Message}", "Emotionball-Deskpet", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
         finally
@@ -66,7 +66,7 @@ internal static class Program
         using var hashStream = OpenPayload();
         var payloadHash = Convert.ToHexString(SHA256.HashData(hashStream));
         var markerPath = Path.Combine(installDirectory, ".payload.sha256");
-        if (File.Exists(Path.Combine(installDirectory, "EmotionBallDesktop.exe")) &&
+        if (File.Exists(Path.Combine(installDirectory, "Emotionball-Deskpet.exe")) &&
             File.Exists(markerPath) &&
             string.Equals(File.ReadAllText(markerPath).Trim(), payloadHash, StringComparison.OrdinalIgnoreCase))
         {

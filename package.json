@@ -1,11 +1,11 @@
 {
-  "name": "emotion-ball-desktop",
+  "name": "emotionball-deskpet",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "node bridge/server.mjs",
     "test": "node --test bridge/state-mapper.test.mjs bridge/thread-index.test.mjs",
-    "build:desktop": "dotnet build desktop-host/EmotionBallDesktop.csproj -c Release"
+    "build:desktop": "dotnet build desktop-host/Emotionball-Deskpet.csproj -c Release"
   }
 }
