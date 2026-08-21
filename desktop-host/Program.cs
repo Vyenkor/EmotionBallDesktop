@@ -90,12 +90,14 @@ internal sealed class PetForm : Form
     private readonly LocalActivityMonitor _localActivityMonitor = new();
     private readonly System.Windows.Forms.Timer _localActivityTimer;
     private readonly System.Windows.Forms.Timer _stateSaveTimer;
+    private readonly System.Windows.Forms.Timer _noticeTimer;
     private readonly Random _random = new();
     private readonly LowLevelMouseProc _mouseHookProc;
     private readonly bool _qaMode;
     private readonly string _windowStatePath;
     private PetInputOverlay? _inputOverlay;
     private StatusBubbleForm? _statusBubble;
+    private StatusBubbleForm? _noticeBubble;
     private string _selectedShape = "blob";
     private string _selectedBubblePosition = "above";
     private bool _showCodexBubble = true;
@@ -107,6 +109,8 @@ internal sealed class PetForm : Form
     private bool _codexTaskActive;
     private bool _idleBubbleAutoHidden;
     private bool _mouseWakePending;
+    private bool _gazeDispatchPending;
+    private Point _latestGazeCursorPosition;
     private string _localContextKey = string.Empty;
     private int _localPhraseIndex = -1;
     private DateTime _nextLocalPhraseAt = DateTime.MinValue;
@@ -156,6 +160,7 @@ internal sealed class PetForm : Form
         _qaMode = qaMode;
         _mouseHookProc = OnLowLevelMouseEvent;
         _lastObservedCursorPosition = Cursor.Position;
+        _latestGazeCursorPosition = _lastObservedCursorPosition;
         _lastObservedMouseMoveAt = DateTime.UtcNow;
         AutoScaleMode = AutoScaleMode.None;
         _windowStatePath = Path.Combine(
@@ -168,6 +173,7 @@ internal sealed class PetForm : Form
         {
             UpdateLocalActivity();
             if (_statusBubble is { IsDisposed: false, Visible: true }) SyncStatusBubbleBounds();
+            if (_noticeBubble is { IsDisposed: false, Visible: true }) SyncNoticeBubbleBounds();
         };
         _stateSaveTimer = new System.Windows.Forms.Timer { Interval = 500 };
         _stateSaveTimer.Tick += (_, _) =>
@@ -175,6 +181,8 @@ internal sealed class PetForm : Form
             _stateSaveTimer.Stop();
             SaveWindowState();
         };
+        _noticeTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+        _noticeTimer.Tick += (_, _) => EndQuickSettingNotice();
         Text = qaMode
             ? "Emotion Ball · Codex Desktop Pet [QA]"
             : "Emotion Ball · Codex Desktop Pet";
@@ -207,17 +215,20 @@ internal sealed class PetForm : Form
             TopMost = _topMostItem.Checked;
             if (_inputOverlay is not null) _inputOverlay.TopMost = TopMost;
             if (_statusBubble is not null) _statusBubble.TopMost = TopMost;
+            if (_noticeBubble is not null) _noticeBubble.TopMost = TopMost;
+            ShowQuickSettingNotice(_topMostItem.Checked ? "始终置顶" : "取消置顶");
             ScheduleWindowStateSave();
         };
 
         _menu = new ContextMenuStrip();
         _menu.Items.Add(_topMostItem);
-        _menu.Items.Add("放大一级", null, (_, _) => ResizeFromCenter(ResizeStep));
-        _menu.Items.Add("缩小一级", null, (_, _) => ResizeFromCenter(-ResizeStep));
-        var sizeMenu = new ToolStripMenuItem("调整大小");
-        sizeMenu.DropDownItems.Add("小（240）", null, (_, _) => ResizeFromCenter(240, absolute: true));
-        sizeMenu.DropDownItems.Add("中（320）", null, (_, _) => ResizeFromCenter(320, absolute: true));
-        sizeMenu.DropDownItems.Add("大（460）", null, (_, _) => ResizeFromCenter(460, absolute: true));
+        var sizeMenu = new ToolStripMenuItem("大小");
+        sizeMenu.DropDownItems.Add("放大一级", null, (_, _) => ResizeFromCenter(ResizeStep, notice: "放大一级"));
+        sizeMenu.DropDownItems.Add("缩小一级", null, (_, _) => ResizeFromCenter(-ResizeStep, notice: "缩小一级"));
+        sizeMenu.DropDownItems.Add(new ToolStripSeparator());
+        sizeMenu.DropDownItems.Add("小（240）", null, (_, _) => ResizeFromCenter(240, absolute: true, notice: "小"));
+        sizeMenu.DropDownItems.Add("中（320）", null, (_, _) => ResizeFromCenter(320, absolute: true, notice: "中"));
+        sizeMenu.DropDownItems.Add("大（460）", null, (_, _) => ResizeFromCenter(460, absolute: true, notice: "大"));
         _menu.Items.Add(sizeMenu);
         var shapeMenu = new ToolStripMenuItem("形态");
         AddShapeItem(shapeMenu, "圆胖", "blob");
@@ -225,12 +236,12 @@ internal sealed class PetForm : Form
         AddShapeItem(shapeMenu, "菱形", "gem");
         _menu.Items.Add(shapeMenu);
         UpdateShapeMenuChecks();
-        var bubblePositionMenu = new ToolStripMenuItem("气泡位置");
+        var bubbleMenu = new ToolStripMenuItem("气泡");
+        var bubblePositionMenu = new ToolStripMenuItem("位置");
         AddBubblePositionItem(bubblePositionMenu, "上方", "above");
         AddBubblePositionItem(bubblePositionMenu, "下方", "below");
-        _menu.Items.Add(bubblePositionMenu);
-        UpdateBubblePositionMenuChecks();
-        var bubbleVisibilityMenu = new ToolStripMenuItem("气泡显示");
+        bubbleMenu.DropDownItems.Add(bubblePositionMenu);
+        var bubbleVisibilityMenu = new ToolStripMenuItem("显示");
         _codexBubbleItem = new ToolStripMenuItem("Codex 气泡")
         {
             Checked = _showCodexBubble,
@@ -240,6 +251,7 @@ internal sealed class PetForm : Form
         {
             _showCodexBubble = _codexBubbleItem.Checked;
             ApplyStatusBubbleVisibility();
+            ShowQuickSettingNotice(_codexBubbleItem.Checked ? "Codex气泡开" : "Codex气泡关");
             ScheduleWindowStateSave();
         };
         _appBubbleItem = new ToolStripMenuItem("App 气泡")
@@ -251,13 +263,16 @@ internal sealed class PetForm : Form
         {
             _showAppBubble = _appBubbleItem.Checked;
             ApplyStatusBubbleVisibility();
+            ShowQuickSettingNotice(_appBubbleItem.Checked ? "App气泡开" : "App气泡关");
             ScheduleWindowStateSave();
         };
         bubbleVisibilityMenu.DropDownItems.Add(_codexBubbleItem);
         bubbleVisibilityMenu.DropDownItems.Add(_appBubbleItem);
-        _menu.Items.Add(bubbleVisibilityMenu);
-        _menu.Items.Add("重新连接", null, (_, _) => _webView.Reload());
+        bubbleMenu.DropDownItems.Add(bubbleVisibilityMenu);
+        _menu.Items.Add(bubbleMenu);
+        UpdateBubblePositionMenuChecks();
         _menu.Items.Add(new ToolStripSeparator());
+        _menu.Items.Add("重新连接", null, (_, _) => _webView.Reload());
         _menu.Items.Add("退出桌宠", null, (_, _) => Close());
 
         _trayMenu = new ContextMenuStrip();
@@ -400,6 +415,12 @@ internal sealed class PetForm : Form
         _selectedShape = NormalizeShape(shape);
         UpdateShapeMenuChecks();
         SendShapeToPage();
+        ShowQuickSettingNotice(_selectedShape switch
+        {
+            "wedge" => "三角",
+            "gem" => "菱形",
+            _ => "圆胖"
+        });
         ScheduleWindowStateSave();
     }
 
@@ -431,6 +452,8 @@ internal sealed class PetForm : Form
         _selectedBubblePosition = NormalizeBubblePosition(position);
         UpdateBubblePositionMenuChecks();
         SyncStatusBubbleBounds();
+        SyncNoticeBubbleBounds();
+        ShowQuickSettingNotice(_selectedBubblePosition == "below" ? "气泡下方" : "气泡上方");
         ScheduleWindowStateSave();
     }
 
@@ -474,12 +497,16 @@ internal sealed class PetForm : Form
         _stateSaveTimer.Stop();
         SaveWindowState();
         _localActivityTimer.Stop();
+        _noticeTimer.Stop();
         _localActivityTimer.Dispose();
         _stateSaveTimer.Dispose();
+        _noticeTimer.Dispose();
         _inputOverlay?.Close();
         _inputOverlay?.Dispose();
         _statusBubble?.Close();
         _statusBubble?.Dispose();
+        _noticeBubble?.Close();
+        _noticeBubble?.Dispose();
         _webView.Dispose();
         _menu.Dispose();
         _trayIcon.Dispose();
@@ -496,17 +523,62 @@ internal sealed class PetForm : Form
 
     private nint OnLowLevelMouseEvent(int code, nint wParam, nint lParam)
     {
-        if (code >= 0 && wParam == WmMouseMove && !_mouseWakePending
-            && !_codexTaskActive && (_localContextKey == "idle" || _idleBubbleAutoHidden))
+        if (code >= 0 && wParam == WmMouseMove)
         {
             var hookData = Marshal.PtrToStructure<MouseHookData>(lParam);
-            if (hookData.Point != _lastObservedCursorPosition)
+            QueueGazeUpdate(hookData.Point);
+            if (!_mouseWakePending && !_codexTaskActive
+                && (_localContextKey == "idle" || _idleBubbleAutoHidden)
+                && hookData.Point != _lastObservedCursorPosition)
             {
                 _mouseWakePending = true;
                 BeginInvoke(new Action(() => WakeFromMouseMovement(hookData.Point)));
             }
         }
         return CallNextHookEx(_mouseHook, code, wParam, lParam);
+    }
+
+    private void QueueGazeUpdate(Point cursorPosition)
+    {
+        _latestGazeCursorPosition = cursorPosition;
+        if (_gazeDispatchPending || IsDisposed || Disposing) return;
+        _gazeDispatchPending = true;
+        try
+        {
+            BeginInvoke(new Action(() =>
+            {
+                _gazeDispatchPending = false;
+                SendGazeForCursor(_latestGazeCursorPosition);
+            }));
+        }
+        catch (InvalidOperationException)
+        {
+            _gazeDispatchPending = false;
+        }
+    }
+
+    private void SendGazeForCursor(Point cursorPosition)
+    {
+        if (_webView.CoreWebView2 is null || _webView.IsDisposed) return;
+
+        var center = PointToScreen(new Point(ClientSize.Width / 2, ClientSize.Height / 2));
+        var dx = cursorPosition.X - center.X;
+        var dy = cursorPosition.Y - center.Y;
+        // Follow the pointer across the whole virtual desktop. The virtual
+        // screen size provides a stable normalization that does not change
+        // when the pet is resized or moved to another monitor.
+        var virtualScreen = SystemInformation.VirtualScreen;
+        var halfWidth = Math.Max(1d, virtualScreen.Width / 2d);
+        var halfHeight = Math.Max(1d, virtualScreen.Height / 2d);
+        var nx = Math.Clamp(dx / halfWidth, -1d, 1d);
+        var ny = Math.Clamp(dy / halfHeight, -1d, 1d);
+        _webView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            type = "set-gaze",
+            active = true,
+            x = nx,
+            y = ny
+        }));
     }
 
     private void WakeFromMouseMovement(Point cursorPosition)
@@ -568,7 +640,9 @@ internal sealed class PetForm : Form
                     break;
                 case "resize-step":
                     var delta = message.RootElement.GetProperty("delta").GetInt32();
-                    ResizeFromCenter(delta >= 0 ? ResizeStep : -ResizeStep);
+                    ResizeFromCenter(
+                        delta >= 0 ? ResizeStep : -ResizeStep,
+                        notice: delta >= 0 ? "放大一级" : "缩小一级");
                     break;
                 case "status":
                     var label = message.RootElement.GetProperty("label").GetString() ?? "未知状态";
@@ -707,6 +781,7 @@ internal sealed class PetForm : Form
     private void ApplyStatusBubbleVisibility()
     {
         if (_statusBubble is null || _statusBubble.IsDisposed) return;
+        if (_noticeBubble is { IsDisposed: false, Visible: true }) return;
 
         var show = _codexTaskActive
             ? _showCodexBubble && !_dismissCodexForCurrentTask
@@ -731,6 +806,27 @@ internal sealed class PetForm : Form
         {
             _statusBubble.Hide();
         }
+    }
+
+    private void ShowQuickSettingNotice(string text)
+    {
+        if (_noticeBubble is null || _noticeBubble.IsDisposed || string.IsNullOrWhiteSpace(text)) return;
+
+        _noticeTimer.Stop();
+        _noticeBubble.TopMost = TopMost;
+        _noticeBubble.UpdateStatus(text, online: true, taskName: null, taskActive: false);
+        _statusBubble?.Hide();
+        SyncNoticeBubbleBounds();
+        if (!_noticeBubble.Visible) _noticeBubble.Show(this);
+        SyncNoticeBubbleBounds();
+        _noticeTimer.Start();
+    }
+
+    private void EndQuickSettingNotice()
+    {
+        _noticeTimer.Stop();
+        if (_noticeBubble is { IsDisposed: false }) _noticeBubble.Hide();
+        ApplyStatusBubbleVisibility();
     }
 
     internal void OnNativeMouseDown(object? sender, MouseEventArgs eventArgs)
@@ -785,7 +881,8 @@ internal sealed class PetForm : Form
     internal void OnNativeMouseWheel(object? sender, MouseEventArgs eventArgs)
     {
         if (!_leftButtonDown || eventArgs.Delta == 0) return;
-        ResizeFromCenter(eventArgs.Delta > 0 ? ResizeStep : -ResizeStep);
+        var growing = eventArgs.Delta > 0;
+        ResizeFromCenter(growing ? ResizeStep : -ResizeStep, notice: growing ? "放大一级" : "缩小一级");
         // Resizing around the center changes the origin. Re-anchor the drag so
         // the pet does not jump when the mouse moves again.
         _dragStartCursor = Cursor.Position;
@@ -797,7 +894,7 @@ internal sealed class PetForm : Form
         if (eventArgs.Button == MouseButtons.Left) _topMostItem.Checked = !_topMostItem.Checked;
     }
 
-    private void ResizeFromCenter(int value, bool absolute = false)
+    private void ResizeFromCenter(int value, bool absolute = false, string? notice = null)
     {
         var nextSize = Math.Clamp(
             absolute ? value : Math.Max(Width, Height) + value,
@@ -806,6 +903,8 @@ internal sealed class PetForm : Form
         var center = new Point(Left + Width / 2, Top + Height / 2);
         var proposedBounds = new Rectangle(center.X - nextSize / 2, center.Y - nextSize / 2, nextSize, nextSize);
         Bounds = ClampBoundsToWorkingArea(proposedBounds, Screen.FromPoint(center).WorkingArea);
+        QueueGazeUpdate(Cursor.Position);
+        if (!string.IsNullOrWhiteSpace(notice)) ShowQuickSettingNotice(notice);
     }
 
     private void ClampPetToScreen(Point referencePoint)
@@ -935,6 +1034,11 @@ internal sealed class PetForm : Form
             _dismissCodexForCurrentTask = true;
             ApplyStatusBubbleVisibility();
         };
+        _noticeBubble = new StatusBubbleForm
+        {
+            TopMost = TopMost
+        };
+        _noticeBubble.SizeChanged += (_, _) => SyncNoticeBubbleBounds();
         SyncStatusBubbleBounds();
         ApplyStatusBubbleVisibility();
     }
@@ -943,6 +1047,7 @@ internal sealed class PetForm : Form
     {
         if (_inputOverlay is not null && !_inputOverlay.IsDisposed) _inputOverlay.Bounds = Bounds;
         SyncStatusBubbleBounds();
+        SyncNoticeBubbleBounds();
     }
 
     private void SyncStatusBubbleBounds()
@@ -973,6 +1078,33 @@ internal sealed class PetForm : Form
         }
 
         _statusBubble.SetAnchor(new Point(x, y), bubbleSize);
+    }
+
+    private void SyncNoticeBubbleBounds()
+    {
+        if (_noticeBubble is null || _noticeBubble.IsDisposed) return;
+        const int gap = 8;
+        var bubbleSize = _noticeBubble.RequiredWindowSize;
+        if (_noticeBubble.Size != bubbleSize) _noticeBubble.Size = bubbleSize;
+        var workingArea = Screen.FromRectangle(Bounds).WorkingArea;
+        var x = Math.Clamp(
+            Left + (Width - bubbleSize.Width) / 2,
+            workingArea.Left,
+            Math.Max(workingArea.Left, workingArea.Right - bubbleSize.Width));
+        var aboveY = Top - bubbleSize.Height - gap;
+        var belowY = Bottom + gap;
+        var preferAbove = _selectedBubblePosition == "above";
+        var y = preferAbove ? aboveY : belowY;
+        if (preferAbove && aboveY < workingArea.Top && belowY + bubbleSize.Height <= workingArea.Bottom)
+        {
+            y = belowY;
+        }
+        else if (!preferAbove && belowY + bubbleSize.Height > workingArea.Bottom && aboveY >= workingArea.Top)
+        {
+            y = aboveY;
+        }
+
+        _noticeBubble.SetAnchor(new Point(x, y), bubbleSize);
     }
 
     private sealed record SavedWindowState(

@@ -11,6 +11,7 @@
   var currentTaskActive = false;
   var dragBounceTimer = 0;
   var ball = null;
+  var hostGazeAvailable = false;
 
   function createBall(shape) {
     currentShape = ['blob', 'wedge', 'gem'].indexOf(shape) >= 0 ? shape : 'blob';
@@ -87,6 +88,16 @@
           emotionId: data.emotionId,
           tips: data.tips || ''
         });
+      } else if (data.type === 'set-gaze') {
+        hostGazeAvailable = true;
+        if (data.active) {
+          ball.setGaze(
+            typeof data.x === 'number' ? data.x : 0,
+            typeof data.y === 'number' ? data.y : 0
+          );
+        } else {
+          ball.clearGaze();
+        }
       } else if (data.type === 'set-dragging') {
         setDragging(Boolean(data.active));
       }
@@ -123,12 +134,20 @@
     if (event.key === 'Escape') postToHost('close');
   });
   window.addEventListener('pointermove', function (event) {
+    // The native transparent input overlay normally owns pointer events. Keep
+    // this as a browser-preview fallback, but let the host-level gaze stream
+    // win when the packaged desktop pet is running.
+    if (hostGazeAvailable) return;
     var rect = ballElement.getBoundingClientRect();
     var cx = rect.left + rect.width / 2;
     var cy = rect.top + rect.height / 2;
+    var dx = event.clientX - cx;
+    var dy = event.clientY - cy;
+    var halfWidth = Math.max(1, window.innerWidth / 2);
+    var halfHeight = Math.max(1, window.innerHeight / 2);
     ball.setGaze(
-      Math.max(-1, Math.min(1, (event.clientX - cx) / 180)),
-      Math.max(-1, Math.min(1, (event.clientY - cy) / 180))
+      Math.max(-1, Math.min(1, dx / halfWidth)),
+      Math.max(-1, Math.min(1, dy / halfHeight))
     );
   }, { passive: true });
 
