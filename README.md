@@ -10,6 +10,8 @@
 
 [下载最新 Windows 版本](https://github.com/Vyenkor/Emotionball-Deskpet/releases/latest)
 
+当前发布版本：**v1.0.3**。本版本重点修复桥接服务异常请求、Codex 会话文件读写竞态、WebView 消息校验、鼠标钩子关闭竞态和桥接进程自动恢复，并收紧本地服务暴露与安装器解压行为。
+
 ## 功能
 
 - Codex 活跃时优先显示任务名称，以及思考、处理、检索、等待、回复、完成等状态。
@@ -90,7 +92,7 @@ dotnet build .\desktop-host\Emotionball-Deskpet.csproj -c Release
 生成便携 Release：
 
 ```powershell
-.\scripts\build-release.ps1 -Version 1.0.0
+.\scripts\build-release.ps1 -Version 1.0.3
 ```
 
 构建脚本会生成精简便携目录、ZIP 与校验文件，同时生成可直接双击运行的自释放 `setup.exe`。

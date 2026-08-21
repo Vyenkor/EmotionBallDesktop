@@ -10,6 +10,8 @@ A transparent Windows desktop pet that reacts to Codex and the application you a
 
 [Download the latest Windows release](https://github.com/Vyenkor/Emotionball-Deskpet/releases/latest)
 
+Current release: **v1.0.3**. This release hardens malformed-request handling, Codex session-file races, WebView message validation, mouse-hook shutdown, bridge auto-recovery, local-service exposure, and installer extraction behavior.
+
 ## Features
 
 - Codex tasks take priority and show the task name plus thinking, working, searching, waiting, replying, and completion states.
@@ -88,7 +90,7 @@ dotnet build .\desktop-host\Emotionball-Deskpet.csproj -c Release
 Create the portable release:
 
 ```powershell
-.\scripts\build-release.ps1 -Version 1.0.0
+.\scripts\build-release.ps1 -Version 1.0.3
 ```
 
 The release script produces a clean portable directory, ZIP and checksums, plus a self-extracting `setup.exe` that can be launched directly.
