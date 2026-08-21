@@ -6,11 +6,11 @@ on:
       version:
         description: Package version without the v prefix
         required: true
-        default: 1.0.3
+        default: 1.0.4
       tag:
         description: Existing GitHub Release tag
         required: true
-        default: v1.0.3
+        default: v1.0.4
   push:
     tags:
       - 'v*'

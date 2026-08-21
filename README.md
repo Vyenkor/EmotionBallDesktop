@@ -10,7 +10,7 @@
 
 [下载最新 Windows 版本](https://github.com/Vyenkor/Emotionball-Deskpet/releases/latest)
 
-当前发布版本：**v1.0.3**。本版本重点修复桥接服务异常请求、Codex 会话文件读写竞态、WebView 消息校验、鼠标钩子关闭竞态和桥接进程自动恢复，并收紧本地服务暴露与安装器解压行为。
+当前发布版本：**v1.0.4**。本版本新增可选安装目录、安装目录内的卸载程序，并继续收紧安装目录覆盖与安装包路径校验。
 
 ## 功能
 
@@ -28,12 +28,13 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/Vyenkor/Emotionball-Deskpet/releases) 下载 `Emotionball-Deskpet-v*-win-x64.zip`。
-2. 将 ZIP 完整解压到普通文件夹。
-3. 双击解压目录中的 `Emotionball-Deskpet.exe`。
-4. 右键桌宠打开设置菜单；需要退出时可从桌宠菜单或系统托盘退出。
+1. 从 [Releases](https://github.com/Vyenkor/Emotionball-Deskpet/releases) 下载 `Emotionball-Deskpet-v*-setup.exe` 或 `Emotionball-Deskpet-v*-win-x64.zip`。
+2. 使用安装版时双击 `setup.exe`，在安装窗口中填写或浏览选择安装目录，然后点击“安装”。安装完成后会自动启动桌宠。
+3. 使用 ZIP 版时，将 ZIP 完整解压到普通文件夹，再双击其中的 `Emotionball-Deskpet.exe`。
+4. 安装版的 `Emotionball-Deskpet-Uninstall.exe` 位于所选安装目录中，双击即可卸载该目录中的桌宠和设置文件。
+5. 右键桌宠打开设置菜单；需要退出运行时可从桌宠菜单或系统托盘退出。
 
-Release 也提供可直接双击的 `Emotionball-Deskpet-v*-setup.exe`，作为不想手动解压时的可选方案。
+安装程序不会强制写入系统目录，默认目录为 `%LOCALAPPDATA%\Emotionball-Deskpet\<版本号>`，也可以在安装时改为其他目录。已有非桌宠文件的目录不会被覆盖。
 
 便携包已包含 x64 .NET 与 Node.js 运行时，不需要安装 Node.js 或 .NET SDK。Windows 仍需提供 Microsoft Edge WebView2 Runtime；多数 Windows 10/11 已自带。
 
@@ -92,10 +93,10 @@ dotnet build .\desktop-host\Emotionball-Deskpet.csproj -c Release
 生成便携 Release：
 
 ```powershell
-.\scripts\build-release.ps1 -Version 1.0.3
+.\scripts\build-release.ps1 -Version 1.0.4
 ```
 
-构建脚本会生成精简便携目录、ZIP 与校验文件，同时生成可直接双击运行的自释放 `setup.exe`。
+构建脚本会生成精简便携目录、ZIP 与校验文件，同时生成可选择安装目录并附带卸载程序的自释放 `setup.exe`。
 
 ## 项目结构
 

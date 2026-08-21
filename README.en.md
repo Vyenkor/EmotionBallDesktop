@@ -10,7 +10,7 @@ A transparent Windows desktop pet that reacts to Codex and the application you a
 
 [Download the latest Windows release](https://github.com/Vyenkor/Emotionball-Deskpet/releases/latest)
 
-Current release: **v1.0.3**. This release hardens malformed-request handling, Codex session-file races, WebView message validation, mouse-hook shutdown, bridge auto-recovery, local-service exposure, and installer extraction behavior.
+Current release: **v1.0.4**. This release adds a selectable install directory, an uninstaller inside that directory, and safer handling for existing folders and package paths.
 
 ## Features
 
@@ -26,12 +26,13 @@ Current release: **v1.0.3**. This release hardens malformed-request handling, Co
 
 ## Quick start
 
-1. Download `Emotionball-Deskpet-v*-win-x64.zip` from [Releases](https://github.com/Vyenkor/Emotionball-Deskpet/releases).
-2. Extract the entire ZIP to a normal folder.
-3. Double-click `Emotionball-Deskpet.exe` in the extracted folder.
-4. Right-click the pet for settings. Exit from either the pet menu or the tray menu.
+1. Download `Emotionball-Deskpet-v*-setup.exe` or `Emotionball-Deskpet-v*-win-x64.zip` from [Releases](https://github.com/Vyenkor/Emotionball-Deskpet/releases).
+2. For the installer, double-click `setup.exe`, enter or browse to an install directory, and click Install. The pet starts automatically after installation.
+3. For the portable build, extract the ZIP to a normal folder and double-click `Emotionball-Deskpet.exe`.
+4. The installer places `Emotionball-Deskpet-Uninstall.exe` in the selected directory; double-click it to remove that installation and its settings.
+5. Right-click the pet for settings. Exit from either the pet menu or the tray menu.
 
-The Release also provides `Emotionball-Deskpet-v*-setup.exe` as an optional one-click alternative when manual extraction is not preferred.
+The installer does not require a system directory. Its default is `%LOCALAPPDATA%\Emotionball-Deskpet\<version>`, and it can be changed during setup. Existing folders containing unrelated files are not overwritten.
 
 The portable archive includes the x64 .NET and Node.js runtimes. No Node.js or .NET SDK installation is required. Microsoft Edge WebView2 Runtime is still required and is included with most Windows 10/11 installations.
 
@@ -90,10 +91,10 @@ dotnet build .\desktop-host\Emotionball-Deskpet.csproj -c Release
 Create the portable release:
 
 ```powershell
-.\scripts\build-release.ps1 -Version 1.0.3
+.\scripts\build-release.ps1 -Version 1.0.4
 ```
 
-The release script produces a clean portable directory, ZIP and checksums, plus a self-extracting `setup.exe` that can be launched directly.
+The release script produces a clean portable directory, ZIP and checksums, plus a self-extracting `setup.exe` that lets the user choose an install directory and includes an uninstaller.
 
 ## Repository layout
 

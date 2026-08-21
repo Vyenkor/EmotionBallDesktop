@@ -8,7 +8,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <AssemblyName>Emotionball-Deskpet</AssemblyName>
     <RootNamespace>EmotionballDeskpet</RootNamespace>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <Authors>Vyenkor; sam70361 (upstream)</Authors>
     <Description>Unofficial Windows desktop derivative of emotion-ball with Codex and local app status integration.</Description>
     <RepositoryUrl>https://github.com/Vyenkor/Emotionball-Deskpet</RepositoryUrl>
