@@ -51,7 +51,11 @@
   }
 
   function setOnline(online) {
-    if (!online) currentLabel = '正在重连 Codex…';
+    if (!online) {
+      currentLabel = '正在重连 Codex…';
+      currentTaskName = '';
+      currentTaskActive = false;
+    }
     postToHost('status', {
       label: currentLabel,
       online: online,

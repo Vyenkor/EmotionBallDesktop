@@ -3,7 +3,9 @@ using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Globalization;
+using System.Net;
 using System.Runtime.InteropServices;
+using System.Security;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -26,8 +28,7 @@ internal static class Program
         }
 
         var qaMode = args.Contains("--qa", StringComparer.OrdinalIgnoreCase);
-        var url = args.FirstOrDefault(value => Uri.TryCreate(value, UriKind.Absolute, out _))
-            ?? "http://127.0.0.1:8765/desktop.html";
+        var url = ResolveBridgeUrl(args);
         try
         {
             Application.Run(new PetForm(url, qaMode));
@@ -57,6 +58,21 @@ internal static class Program
             }
         }
         return false;
+    }
+
+    private static string ResolveBridgeUrl(string[] args)
+    {
+        const string fallback = "http://127.0.0.1:8765/desktop.html";
+        var supplied = args.FirstOrDefault(value => Uri.TryCreate(value, UriKind.Absolute, out _));
+        if (supplied is null || !Uri.TryCreate(supplied, UriKind.Absolute, out var uri)) return fallback;
+
+        // The desktop host is intentionally restricted to the local bridge.
+        // A command-line URL must never turn the WebView into an arbitrary
+        // remote page that can send host-control messages.
+        var loopback = IPAddress.TryParse(uri.Host, out var address)
+            ? IPAddress.IsLoopback(address)
+            : string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
+        return uri.Scheme == Uri.UriSchemeHttp && loopback ? uri.ToString() : fallback;
     }
 }
 
@@ -95,6 +111,7 @@ internal sealed class PetForm : Form
     private readonly System.Windows.Forms.Timer _stateSaveTimer;
     private readonly System.Windows.Forms.Timer _noticeTimer;
     private readonly System.Windows.Forms.Timer _hoverFadeTimer;
+    private readonly System.Windows.Forms.Timer _bridgeRecoveryTimer;
     private readonly Random _random = new();
     private readonly LowLevelMouseProc _mouseHookProc;
     private readonly bool _qaMode;
@@ -125,6 +142,8 @@ internal sealed class PetForm : Form
     private bool _leftButtonDown;
     private bool _systemDragActive;
     private bool _clampingToScreen;
+    private bool _closing;
+    private bool _bridgeRecoveryPending;
     private bool _codexTaskActive;
     private bool _idleBubbleAutoHidden;
     private bool _mouseWakePending;
@@ -204,6 +223,8 @@ internal sealed class PetForm : Form
         _noticeTimer.Tick += (_, _) => EndQuickSettingNotice();
         _hoverFadeTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _hoverFadeTimer.Tick += (_, _) => AdvanceHoverFade();
+        _bridgeRecoveryTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+        _bridgeRecoveryTimer.Tick += async (_, _) => await RecoverBridgeAsync();
         Text = qaMode
             ? "Emotionball-Deskpet · Codex [QA]"
             : "Emotionball-Deskpet · Codex";
@@ -354,7 +375,9 @@ internal sealed class PetForm : Form
             InstallMouseHook();
             EnsureInputOverlay();
             await InitializeWebViewAsync();
+            if (_closing || IsDisposed) return;
             _localActivityTimer.Start();
+            _bridgeRecoveryTimer.Start();
             UpdateLocalActivity(force: true);
         };
         KeyDown += (_, eventArgs) =>
@@ -416,7 +439,7 @@ internal sealed class PetForm : Form
             _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
             _webView.CoreWebView2.Settings.IsZoomControlEnabled = false;
             _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
-            _webView.CoreWebView2.ProcessFailed += (_, _) => BeginInvoke(_webView.Reload);
+            _webView.CoreWebView2.ProcessFailed += (_, _) => TryBeginInvoke(_webView.Reload);
             _webView.CoreWebView2.NavigationCompleted += (_, _) =>
             {
                 SendHostLayout();
@@ -440,10 +463,32 @@ internal sealed class PetForm : Form
         }
     }
 
+    private async Task RecoverBridgeAsync()
+    {
+        if (_closing || _bridgeRecoveryPending) return;
+        _bridgeRecoveryPending = true;
+        try
+        {
+            var recovered = await _bridgeManager.EnsureRunningAsync();
+            if (recovered && !_closing && _webView.CoreWebView2 is not null)
+            {
+                TryBeginInvoke(_webView.Reload);
+            }
+        }
+        catch
+        {
+            // The next timer tick retries. Recovery must not terminate the UI.
+        }
+        finally
+        {
+            _bridgeRecoveryPending = false;
+        }
+    }
+
     protected override void OnDpiChanged(DpiChangedEventArgs eventArgs)
     {
         base.OnDpiChanged(eventArgs);
-        if (_webView.CoreWebView2 is not null) BeginInvoke(ApplyWebViewDpiScale);
+        if (_webView.CoreWebView2 is not null) TryBeginInvoke(ApplyWebViewDpiScale);
     }
 
     private void ApplyWebViewDpiScale()
@@ -621,6 +666,7 @@ internal sealed class PetForm : Form
 
     protected override void OnFormClosed(FormClosedEventArgs eventArgs)
     {
+        _closing = true;
         _trayIcon.Visible = false;
         if (_mouseHook != nint.Zero)
         {
@@ -632,10 +678,12 @@ internal sealed class PetForm : Form
         _localActivityTimer.Stop();
         _noticeTimer.Stop();
         _hoverFadeTimer.Stop();
+        _bridgeRecoveryTimer.Stop();
         _localActivityTimer.Dispose();
         _stateSaveTimer.Dispose();
         _noticeTimer.Dispose();
         _hoverFadeTimer.Dispose();
+        _bridgeRecoveryTimer.Dispose();
         _inputOverlay?.Close();
         _inputOverlay?.Dispose();
         _statusBubble?.Close();
@@ -671,7 +719,10 @@ internal sealed class PetForm : Form
                     && hookData.Point != _lastObservedCursorPosition)
                 {
                     _mouseWakePending = true;
-                    BeginInvoke(new Action(() => WakeFromMouseMovement(hookData.Point)));
+                    if (!TryBeginInvoke(() => WakeFromMouseMovement(hookData.Point)))
+                    {
+                        _mouseWakePending = false;
+                    }
                 }
             }
         }
@@ -685,15 +736,11 @@ internal sealed class PetForm : Form
         if (_hoverUpdatePending) return;
 
         _hoverUpdatePending = true;
-        try
+        if (!TryBeginInvoke(() =>
         {
-            BeginInvoke(new Action(() =>
-            {
-                _hoverUpdatePending = false;
-                ApplyHoverState(_latestGazeCursorPosition);
-            }));
-        }
-        catch (InvalidOperationException)
+            _hoverUpdatePending = false;
+            ApplyHoverState(_latestGazeCursorPosition);
+        }))
         {
             _hoverUpdatePending = false;
         }
@@ -859,17 +906,27 @@ internal sealed class PetForm : Form
         _latestGazeCursorPosition = cursorPosition;
         if (_gazeDispatchPending || IsDisposed || Disposing) return;
         _gazeDispatchPending = true;
+        if (!TryBeginInvoke(() =>
+        {
+            _gazeDispatchPending = false;
+            SendGazeForCursor(_latestGazeCursorPosition);
+        }))
+        {
+            _gazeDispatchPending = false;
+        }
+    }
+
+    private bool TryBeginInvoke(Action action)
+    {
+        if (_closing || IsDisposed || Disposing || !IsHandleCreated) return false;
         try
         {
-            BeginInvoke(new Action(() =>
-            {
-                _gazeDispatchPending = false;
-                SendGazeForCursor(_latestGazeCursorPosition);
-            }));
+            BeginInvoke(action);
+            return true;
         }
         catch (InvalidOperationException)
         {
-            _gazeDispatchPending = false;
+            return false;
         }
     }
 
@@ -933,10 +990,17 @@ internal sealed class PetForm : Form
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs eventArgs)
     {
+        if (!IsTrustedWebMessageSource(eventArgs.Source)) return;
         try
         {
             using var message = JsonDocument.Parse(eventArgs.WebMessageAsJson);
-            var type = message.RootElement.GetProperty("type").GetString();
+            if (message.RootElement.ValueKind != JsonValueKind.Object
+                || !message.RootElement.TryGetProperty("type", out var typeValue)
+                || typeValue.ValueKind != JsonValueKind.String)
+            {
+                return;
+            }
+            var type = typeValue.GetString();
             switch (type)
             {
                 case "drag":
@@ -955,21 +1019,19 @@ internal sealed class PetForm : Form
                     }
                     break;
                 case "resize-step":
-                    var delta = message.RootElement.GetProperty("delta").GetInt32();
+                    if (!TryGetInt32(message.RootElement, "delta", out var delta)) return;
                     ResizeFromCenter(
                         delta >= 0 ? ResizeStep : -ResizeStep,
                         notice: delta >= 0 ? "放大一级" : "缩小一级");
                     break;
                 case "status":
-                    var label = message.RootElement.GetProperty("label").GetString() ?? "未知状态";
-                    var online = message.RootElement.TryGetProperty("online", out var onlineValue) && onlineValue.GetBoolean();
+                    var label = TryGetString(message.RootElement, "label") ?? "未知状态";
+                    var online = TryGetBoolean(message.RootElement, "online");
                     var taskName = message.RootElement.TryGetProperty("taskName", out var taskNameValue)
                         && taskNameValue.ValueKind == JsonValueKind.String
                         ? taskNameValue.GetString()
                         : null;
-                    var taskActive = message.RootElement.TryGetProperty("taskActive", out var taskActiveValue)
-                        && taskActiveValue.ValueKind is JsonValueKind.True or JsonValueKind.False
-                        && taskActiveValue.GetBoolean();
+                    var taskActive = online && TryGetBoolean(message.RootElement, "taskActive");
                     var taskJustStarted = !_codexTaskActive && taskActive;
                     _codexTaskActive = taskActive;
                     if (taskJustStarted || !taskActive) _dismissCodexForCurrentTask = false;
@@ -1002,6 +1064,37 @@ internal sealed class PetForm : Form
         {
             // Ignore malformed page messages; they never affect the Codex bridge.
         }
+        catch (InvalidOperationException)
+        {
+            // Ignore messages with an unexpected JSON shape.
+        }
+    }
+
+    private bool IsTrustedWebMessageSource(string? source)
+    {
+        if (!Uri.TryCreate(source, UriKind.Absolute, out var actual)
+            || !Uri.TryCreate(_url, UriKind.Absolute, out var expected)) return false;
+        return actual.Scheme == expected.Scheme
+            && string.Equals(actual.Host, expected.Host, StringComparison.OrdinalIgnoreCase)
+            && actual.Port == expected.Port;
+    }
+
+    private static string? TryGetString(JsonElement value, string propertyName) =>
+        value.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+
+    private static bool TryGetBoolean(JsonElement value, string propertyName) =>
+        value.TryGetProperty(propertyName, out var property)
+        && property.ValueKind is JsonValueKind.True or JsonValueKind.False
+        && property.GetBoolean();
+
+    private static bool TryGetInt32(JsonElement value, string propertyName, out int result)
+    {
+        result = 0;
+        return value.TryGetProperty(propertyName, out var property)
+            && property.ValueKind == JsonValueKind.Number
+            && property.TryGetInt32(out result);
     }
 
     private void UpdateLocalActivity(bool force = false)
@@ -1112,10 +1205,10 @@ internal sealed class PetForm : Form
                 // Showing a layered window can cause Windows to apply its last
                 // native bounds. Re-center once more using the new content size.
                 SyncStatusBubbleBounds();
-                BeginInvoke(new Action(() =>
+                TryBeginInvoke(() =>
                 {
                     if (_statusBubble is { IsDisposed: false, Visible: true }) SyncStatusBubbleBounds();
-                }));
+                });
             }
         }
         else
@@ -1292,6 +1385,18 @@ internal sealed class PetForm : Form
         {
             PositionAtBottomRight();
         }
+        catch (UnauthorizedAccessException)
+        {
+            PositionAtBottomRight();
+        }
+        catch (SecurityException)
+        {
+            PositionAtBottomRight();
+        }
+        catch (NotSupportedException)
+        {
+            PositionAtBottomRight();
+        }
     }
 
     private void PositionAtBottomRight()
@@ -1321,9 +1426,23 @@ internal sealed class PetForm : Form
                 _hoverPassThroughEnabled,
                 _edgeRelocationEnabled,
                 _hoverVisiblePercent);
-            File.WriteAllText(_windowStatePath, JsonSerializer.Serialize(state));
+            var tempPath = _windowStatePath + ".tmp";
+            File.WriteAllText(tempPath, JsonSerializer.Serialize(state));
+            File.Move(tempPath, _windowStatePath, overwrite: true);
         }
         catch (IOException)
+        {
+            // Window-state persistence is optional and must not block shutdown.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Window-state persistence is optional and must not block shutdown.
+        }
+        catch (SecurityException)
+        {
+            // Window-state persistence is optional and must not block shutdown.
+        }
+        catch (NotSupportedException)
         {
             // Window-state persistence is optional and must not block shutdown.
         }
@@ -2113,7 +2232,9 @@ internal sealed class BridgeProcessManager : IDisposable
 {
     private readonly string _projectRoot;
     private readonly int _port;
+    private readonly SemaphoreSlim _gate = new(1, 1);
     private Process? _ownedProcess;
+    private bool _disposed;
 
     public BridgeProcessManager(string projectRoot, int port)
     {
@@ -2121,40 +2242,59 @@ internal sealed class BridgeProcessManager : IDisposable
         _port = port;
     }
 
-    public async Task EnsureRunningAsync()
+    public async Task<bool> EnsureRunningAsync()
     {
-        if (await IsHealthyAsync()) return;
-
-        var serverPath = Path.Combine(_projectRoot, "bridge", "server.mjs");
-        var runtimeDirectory = Path.Combine(_projectRoot, ".bridge-runtime");
-        var bundledNodePath = Path.Combine(_projectRoot, "runtime", "node.exe");
-        Directory.CreateDirectory(runtimeDirectory);
-
-        var startInfo = new ProcessStartInfo
+        await _gate.WaitAsync();
+        try
         {
-            FileName = File.Exists(bundledNodePath) ? bundledNodePath : "node",
-            WorkingDirectory = _projectRoot,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        startInfo.ArgumentList.Add(serverPath);
-        startInfo.ArgumentList.Add("--port");
-        startInfo.ArgumentList.Add(_port.ToString());
-        _ownedProcess = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("Could not start the local Codex bridge.");
+            if (_disposed) return false;
+            if (await IsHealthyAsync()) return false;
+            if (_disposed) return false;
 
-        _ = DrainAsync(_ownedProcess.StandardOutput, Path.Combine(runtimeDirectory, "desktop-server.log"));
-        _ = DrainAsync(_ownedProcess.StandardError, Path.Combine(runtimeDirectory, "desktop-server-error.log"));
+            var serverPath = Path.Combine(_projectRoot, "bridge", "server.mjs");
+            var runtimeDirectory = Path.Combine(_projectRoot, ".bridge-runtime");
+            var bundledNodePath = Path.Combine(_projectRoot, "runtime", "node.exe");
+            var runtimeDirectoryExists = Directory.Exists(Path.Combine(_projectRoot, "runtime"));
+            if (runtimeDirectoryExists && !File.Exists(bundledNodePath))
+            {
+                throw new FileNotFoundException("打包运行时缺少 runtime/node.exe。", bundledNodePath);
+            }
+            StopOwnedProcess();
+            if (_disposed) return false;
+            Directory.CreateDirectory(runtimeDirectory);
 
-        for (var attempt = 0; attempt < 40; attempt++)
-        {
-            await Task.Delay(200);
-            if (_ownedProcess.HasExited) break;
-            if (await IsHealthyAsync()) return;
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = runtimeDirectoryExists ? bundledNodePath : "node",
+                WorkingDirectory = _projectRoot,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            startInfo.ArgumentList.Add(serverPath);
+            startInfo.ArgumentList.Add("--port");
+            startInfo.ArgumentList.Add(_port.ToString());
+            _ownedProcess = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("Could not start the local Codex bridge.");
+
+            _ = DrainAsync(_ownedProcess.StandardOutput, Path.Combine(runtimeDirectory, "desktop-server.log"));
+            _ = DrainAsync(_ownedProcess.StandardError, Path.Combine(runtimeDirectory, "desktop-server-error.log"));
+
+            for (var attempt = 0; attempt < 40; attempt++)
+            {
+                await Task.Delay(200);
+                if (_disposed) return false;
+                if (_ownedProcess is null || _ownedProcess.HasExited) break;
+                if (await IsHealthyAsync()) return true;
+            }
+            StopOwnedProcess();
+            throw new InvalidOperationException("The local Codex bridge did not become ready.");
         }
-        throw new InvalidOperationException("The local Codex bridge did not become ready.");
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private async Task<bool> IsHealthyAsync()
@@ -2163,7 +2303,13 @@ internal sealed class BridgeProcessManager : IDisposable
         try
         {
             using var response = await client.GetAsync($"http://127.0.0.1:{_port}/api/health");
-            return response.IsSuccessStatusCode;
+            if (!response.IsSuccessStatusCode) return false;
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            return document.RootElement.TryGetProperty("ok", out var ok)
+                && ok.ValueKind == JsonValueKind.True
+                && document.RootElement.TryGetProperty("bridgeVersion", out var version)
+                && version.ValueKind == JsonValueKind.Number
+                && version.GetInt32() >= 2;
         }
         catch (HttpRequestException)
         {
@@ -2173,13 +2319,39 @@ internal sealed class BridgeProcessManager : IDisposable
         {
             return false;
         }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static async Task DrainAsync(StreamReader reader, string logPath)
     {
         try
         {
-            await File.WriteAllTextAsync(logPath, await reader.ReadToEndAsync());
+            const int maxLogCharacters = 1_000_000;
+            await using var file = new FileStream(logPath, FileMode.Create, FileAccess.Write, FileShare.Read, 4096, useAsync: true);
+            await using var writer = new StreamWriter(file);
+            var remaining = maxLogCharacters;
+            while (await reader.ReadLineAsync() is { } line)
+            {
+                if (remaining <= 0) continue;
+                var text = line.Length + Environment.NewLine.Length;
+                if (text > remaining)
+                {
+                    await writer.WriteLineAsync(line[..Math.Max(0, remaining - Environment.NewLine.Length)]);
+                    remaining = 0;
+                }
+                else
+                {
+                    await writer.WriteLineAsync(line);
+                    remaining -= text;
+                }
+            }
         }
         catch
         {
@@ -2188,6 +2360,12 @@ internal sealed class BridgeProcessManager : IDisposable
     }
 
     public void Dispose()
+    {
+        _disposed = true;
+        StopOwnedProcess();
+    }
+
+    private void StopOwnedProcess()
     {
         if (_ownedProcess is null) return;
         try
@@ -2198,9 +2376,14 @@ internal sealed class BridgeProcessManager : IDisposable
         {
             // The process already exited.
         }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Process teardown is best-effort during shutdown/recovery.
+        }
         finally
         {
             _ownedProcess.Dispose();
+            _ownedProcess = null;
         }
     }
 }

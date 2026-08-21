@@ -31,6 +31,11 @@ internal static class Program
                 ? Path.GetFullPath(args[extractOnlyIndex + 1])
                 : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Emotionball-Deskpet", version);
 
+            if (extractOnly && (Directory.Exists(installDirectory) || File.Exists(installDirectory)))
+            {
+                throw new IOException("--extract-only 目标必须是不存在的新目录，安装器不会删除已有目录。");
+            }
+
             InstallPayload(installDirectory);
             if (extractOnly)
             {
